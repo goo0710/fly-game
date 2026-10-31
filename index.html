@@ -1,0 +1,2092 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>지금 저 파리를 잡아!</title>
+<link rel="icon" href="data:,">
+<style>
+  :root {
+    --bg-1: #2a3a4c;
+    --bg-2: #121a24;
+    --ink: #ffffff;
+    --ink-dim: #b9c6d6;
+    --accent: #ffd447;
+    --accent-ink: #2a2100;
+    --warn: #ff4d4d;
+    --card: rgba(255, 255, 255, 0.08);
+    --card-line: rgba(255, 255, 255, 0.16);
+    --font: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Malgun Gothic", "맑은 고딕", "Noto Sans KR", sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    width: 100%; height: 100%;
+    overflow: hidden;
+    background: var(--bg-2);
+    color: var(--ink);
+    font-family: var(--font);
+    word-break: keep-all;
+    -webkit-user-select: none; user-select: none;
+    -webkit-touch-callout: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+  #game {
+    position: fixed; inset: 0;
+    width: 100vw; height: 100vh; height: 100dvh;
+    display: block;
+    touch-action: none;
+  }
+  body.debug #game { cursor: crosshair; }
+
+  /* ---------- 공통 화면 ---------- */
+  .screen {
+    position: fixed; inset: 0;
+    display: none;
+    flex-direction: column; align-items: center; justify-content: center;
+    gap: clamp(14px, 3vmin, 32px);
+    padding: max(16px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) max(16px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
+    text-align: center;
+  }
+  .screen.active { display: flex; }
+
+  button {
+    font-family: inherit; color: inherit;
+    border: none; cursor: pointer;
+    touch-action: manipulation;
+  }
+  button:disabled { opacity: 0.45; cursor: default; }
+  .primary {
+    background: var(--accent); color: var(--accent-ink);
+    font-size: clamp(18px, 3vmin, 26px); font-weight: 800;
+    letter-spacing: 0.02em;
+    padding: 0.7em 2.6em; border-radius: 999px;
+    box-shadow: 0 8px 24px rgba(255, 212, 71, 0.22), inset 0 -3px 0 rgba(0, 0, 0, 0.14);
+    transition: transform 0.12s, filter 0.12s;
+  }
+  .primary:hover:not(:disabled) { filter: brightness(1.06); transform: translateY(-1px); }
+  .primary:active:not(:disabled) { transform: translateY(1px); }
+  .secondary {
+    background: transparent; border: 1.5px solid var(--card-line);
+    font-size: clamp(16px, 2.5vmin, 22px); font-weight: 700;
+    padding: 0.7em 1.8em; border-radius: 999px;
+    transition: background 0.12s, border-color 0.12s;
+  }
+  .secondary:hover:not(:disabled) { background: var(--card); border-color: rgba(255, 255, 255, 0.3); }
+  .keys { font-size: clamp(13px, 1.8vmin, 15px); color: var(--ink-dim); opacity: 0.8; }
+  .keys b {
+    display: inline-block; color: var(--ink); font-weight: 600;
+    font-size: 0.9em; padding: 0.1em 0.5em; margin: 0 0.15em;
+    border: 1px solid var(--card-line); border-bottom-width: 2px; border-radius: 6px;
+  }
+
+  /* ---------- 시작 화면 ---------- */
+  #screen-start { background: rgba(10, 16, 24, 0.35); gap: clamp(10px, 2vmin, 20px); }
+  .title {
+    font-size: clamp(36px, 7.5vmin, 84px); font-weight: 900;
+    line-height: 1.1; letter-spacing: -0.03em;
+    text-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+  }
+  .title .hit { color: var(--accent); display: inline-block; }
+  .rule { font-size: clamp(17px, 2.9vmin, 26px); font-weight: 600; color: #dfe7f1; }
+  .note {
+    font-size: clamp(13px, 1.9vmin, 16px); color: var(--ink-dim);
+    background: var(--card); border: 1px solid var(--card-line);
+    padding: 0.5em 1.1em; border-radius: 999px;
+    margin-bottom: clamp(8px, 2vmin, 20px);
+  }
+  .note b { color: var(--accent); font-weight: 700; }
+  .modes { display: flex; gap: clamp(10px, 1.8vmin, 16px); flex-wrap: wrap; justify-content: center; }
+  .mode {
+    position: relative;
+    display: flex; flex-direction: column; align-items: flex-start; gap: 0.35em;
+    width: min(40vw, 250px);
+    padding: 1em 1.2em; border-radius: 16px;
+    text-align: left;
+    background: rgba(255, 255, 255, 0.05); border: 1.5px solid var(--card-line);
+    transition: border-color 0.15s, background 0.15s;
+  }
+  .mode:hover { background: rgba(255, 255, 255, 0.09); }
+  .mode::after {
+    content: ''; position: absolute; top: 1.1em; right: 1.1em;
+    width: 14px; height: 14px; border-radius: 50%;
+    border: 1.5px solid var(--card-line);
+  }
+  .mode .mode-name { font-size: clamp(18px, 2.9vmin, 24px); font-weight: 800; }
+  .mode .mode-desc { font-size: clamp(13px, 1.9vmin, 15px); color: var(--ink-dim); font-weight: 500; }
+  .mode.selected { border-color: var(--accent); background: rgba(255, 212, 71, 0.08); }
+  .mode.selected::after { border-color: var(--accent); background: var(--accent); box-shadow: inset 0 0 0 3px #2a3442; }
+  .start-row { margin-top: clamp(8px, 2vmin, 20px); display: flex; flex-direction: column; align-items: center; gap: clamp(10px, 1.8vmin, 16px); }
+
+  /* ---------- 카운트다운 ---------- */
+  #screen-countdown { pointer-events: none; }
+  #countdown-num {
+    font-size: clamp(160px, 42vmin, 420px); font-weight: 900; line-height: 1;
+    color: var(--accent);
+    text-shadow: 0 10px 0 rgba(0, 0, 0, 0.35);
+  }
+  #countdown-hint { font-size: clamp(22px, 4.4vmin, 44px); font-weight: 800; }
+
+  /* ---------- 게임 HUD ---------- */
+  #hud {
+    position: fixed; inset: 0;
+    display: none;
+    pointer-events: none;
+    padding: max(14px, env(safe-area-inset-top)) max(18px, env(safe-area-inset-right)) 14px max(18px, env(safe-area-inset-left));
+  }
+  #hud.active { display: block; }
+  .hud-box {
+    position: absolute; top: max(14px, env(safe-area-inset-top));
+    display: flex; flex-direction: column;
+    text-shadow: 0 3px 0 rgba(0, 0, 0, 0.45);
+  }
+  .hud-left { left: max(20px, env(safe-area-inset-left)); align-items: flex-start; }
+  .hud-right { right: max(20px, env(safe-area-inset-right)); align-items: flex-end; }
+  .hud-label { font-size: clamp(16px, 2.8vmin, 28px); font-weight: 800; color: var(--ink-dim); }
+  .hud-num { font-size: clamp(56px, 12vmin, 140px); font-weight: 900; line-height: 1; font-variant-numeric: tabular-nums; }
+  .hud-num small { font-size: 0.4em; margin-left: 0.1em; }
+  #hud-time.warn { color: var(--warn); }
+  #hud-mode {
+    margin-top: 0.4em;
+    font-size: clamp(14px, 2.4vmin, 22px); font-weight: 800;
+    background: rgba(255, 255, 255, 0.14); padding: 0.2em 0.7em; border-radius: 999px;
+    text-shadow: none;
+  }
+  #hud-combo {
+    position: absolute; left: 50%; top: max(18px, env(safe-area-inset-top));
+    transform: translateX(-50%);
+    font-size: clamp(44px, 9.5vmin, 110px); font-weight: 900;
+    color: var(--accent);
+    text-shadow: 0 5px 0 rgba(0, 0, 0, 0.4);
+    white-space: nowrap;
+    display: none;
+  }
+  #hud-combo.show { display: block; }
+  .pop { animation: pop 0.45s cubic-bezier(.2, 1.6, .4, 1); }
+  @keyframes pop {
+    0% { scale: 0.4; opacity: 0.3; rotate: -8deg; }
+    60% { scale: 1.15; opacity: 1; rotate: 3deg; }
+    100% { scale: 1; opacity: 1; rotate: 0deg; }
+  }
+
+  /* ---------- 결과 화면 ---------- */
+  #screen-result { background: rgba(10, 16, 24, 0.82); gap: clamp(10px, 2.4vmin, 26px); }
+  .result-head { display: flex; align-items: center; gap: 0.5em; }
+  .result-head h2 { font-size: clamp(36px, 7.5vmin, 80px); font-weight: 900; }
+  .tag {
+    font-size: clamp(16px, 2.8vmin, 26px); font-weight: 800;
+    background: rgba(255, 255, 255, 0.14); padding: 0.2em 0.8em; border-radius: 999px;
+  }
+  .hero { display: flex; flex-direction: column; align-items: center; }
+  .hero-label { font-size: clamp(20px, 3.8vmin, 38px); font-weight: 800; color: var(--ink-dim); }
+  .hero-num {
+    font-size: clamp(110px, 26vmin, 280px); font-weight: 900; line-height: 1;
+    color: var(--accent); font-variant-numeric: tabular-nums;
+    text-shadow: 0 8px 0 rgba(0, 0, 0, 0.35);
+  }
+  .hero-num small { font-size: 0.3em; color: var(--ink); margin-left: 0.08em; }
+  .badge {
+    font-size: clamp(20px, 3.8vmin, 36px); font-weight: 900;
+    background: var(--warn); color: #fff;
+    padding: 0.15em 0.8em; border-radius: 999px;
+    visibility: hidden;
+  }
+  .badge.show { visibility: visible; }
+  .stats {
+    display: grid; grid-template-columns: repeat(4, 1fr);
+    gap: clamp(8px, 2vmin, 20px);
+    width: min(100%, 1100px);
+  }
+  .stat {
+    background: var(--card); border: 2px solid var(--card-line); border-radius: 20px;
+    padding: 0.5em 0.4em;
+  }
+  .stat-label { font-size: clamp(16px, 2.8vmin, 28px); font-weight: 800; color: var(--ink-dim); }
+  .stat-num { font-size: clamp(40px, 8vmin, 84px); font-weight: 900; line-height: 1.1; font-variant-numeric: tabular-nums; }
+  .stat-num small { font-size: 0.42em; margin-left: 0.08em; }
+  .sub { font-size: clamp(16px, 2.8vmin, 26px); color: var(--ink-dim); }
+  .buttons { display: flex; gap: clamp(12px, 2.5vmin, 28px); flex-wrap: wrap; justify-content: center; align-items: center; }
+
+  /* ---------- 자세 확인 화면 ---------- */
+  #screen-pose { justify-content: space-between; pointer-events: none; }
+  #screen-pose button { pointer-events: auto; }
+  .pose-panel {
+    display: flex; flex-direction: column; align-items: center; gap: clamp(8px, 1.6vmin, 14px);
+    background: rgba(10, 16, 24, 0.62);
+    -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
+    border: 1px solid var(--card-line); border-radius: 20px;
+    padding: clamp(14px, 2.6vmin, 24px) clamp(18px, 4vmin, 40px);
+    max-width: min(100%, 760px);
+  }
+  .pose-title { font-size: clamp(20px, 3.6vmin, 34px); font-weight: 800; line-height: 1.35; }
+  .pose-status {
+    font-size: clamp(16px, 2.6vmin, 22px); font-weight: 700;
+    padding: 0.35em 1em; border-radius: 999px;
+    background: rgba(255, 255, 255, 0.1);
+  }
+  .pose-status.ok { background: rgba(91, 224, 138, 0.18); color: #7ef0a6; }
+  .pose-status.warn { background: rgba(255, 159, 67, 0.2); color: #ffb468; }
+  .pose-bar { width: min(60vw, 320px); height: 8px; border-radius: 999px; background: rgba(255, 255, 255, 0.12); overflow: hidden; }
+  #pose-bar-fill { width: 0%; height: 100%; background: #5be08a; border-radius: inherit; }
+  .pose-error {
+    position: fixed; inset: 0;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: clamp(12px, 2.4vmin, 22px);
+    padding: 16px;
+    background: rgba(10, 16, 24, 0.92);
+    pointer-events: auto;
+  }
+  .pose-error[hidden] { display: none; }
+  .pose-error h2 { font-size: clamp(24px, 4.6vmin, 42px); font-weight: 900; }
+  .pose-error p { font-size: clamp(15px, 2.4vmin, 20px); color: var(--ink-dim); line-height: 1.6; max-width: 640px; }
+  .pose-error p b { color: var(--ink); }
+
+  /* ---------- 디버그 ---------- */
+  #debug-badge {
+    position: fixed; left: 50%; bottom: max(12px, env(safe-area-inset-bottom));
+    transform: translateX(-50%);
+    display: none;
+    font-size: 14px; font-weight: 700;
+    background: rgba(255, 77, 77, 0.85); color: #fff;
+    padding: 0.35em 1em; border-radius: 999px;
+    pointer-events: none; white-space: nowrap;
+  }
+  body.debug #debug-badge { display: block; }
+
+  /* ---------- 시작 화면 안내 ---------- */
+  .tips { list-style: none; display: flex; flex-direction: column; gap: 0.35em; font-size: clamp(13px, 1.9vmin, 16px); color: var(--ink-dim); }
+  .tips li::before { content: ''; display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--accent); margin-right: 0.6em; vertical-align: middle; }
+  .corner-btn {
+    position: absolute; top: max(16px, env(safe-area-inset-top)); right: max(16px, env(safe-area-inset-right));
+    background: transparent; border: 1.5px solid var(--card-line); border-radius: 999px;
+    font-size: clamp(13px, 1.8vmin, 15px); font-weight: 700; color: var(--ink-dim);
+    padding: 0.55em 1.1em;
+  }
+  .corner-btn:hover { color: var(--ink); background: var(--card); }
+
+  /* ---------- QR 창 ---------- */
+  .modal {
+    position: fixed; inset: 0;
+    display: flex; align-items: center; justify-content: center;
+    padding: 16px;
+    background: rgba(10, 16, 24, 0.85);
+  }
+  .modal[hidden] { display: none; }
+  .modal-card {
+    display: flex; flex-direction: column; align-items: center; gap: clamp(10px, 2vmin, 18px);
+    background: #fff; color: #142030;
+    border-radius: 24px; padding: clamp(18px, 4vmin, 36px);
+    max-width: 100%;
+  }
+  .modal-card h2 { font-size: clamp(20px, 3.6vmin, 30px); font-weight: 900; }
+  #qr-box svg { display: block; width: min(64vmin, 420px); height: auto; }
+  .qr-url { font-size: clamp(14px, 2.2vmin, 18px); font-weight: 700; word-break: break-all; text-align: center; }
+  .modal-card .secondary { color: #142030; border-color: rgba(20, 32, 48, 0.25); }
+
+  /* ---------- 소리 꺼짐 표시 · 축하 효과 ---------- */
+  #sound-pill {
+    position: fixed; right: max(14px, env(safe-area-inset-right)); bottom: max(14px, env(safe-area-inset-bottom));
+    display: none;
+    font-size: 14px; font-weight: 700;
+    background: rgba(255, 255, 255, 0.14); color: var(--ink);
+    padding: 0.35em 0.9em; border-radius: 999px;
+    pointer-events: none;
+  }
+  #sound-pill.show { display: block; }
+  #fx { position: fixed; inset: 0; width: 100vw; height: 100vh; height: 100dvh; pointer-events: none; }
+  #hud-combo.hot { color: #ff9f43; }
+  .badge.show { animation: badge-in 0.6s cubic-bezier(.2, 1.6, .4, 1) 0.6s both; }
+  @keyframes badge-in {
+    0% { scale: 0; rotate: -12deg; }
+    100% { scale: 1; rotate: 0deg; }
+  }
+
+  @media (max-aspect-ratio: 4/5) {
+    .stats { grid-template-columns: repeat(2, 1fr); }
+  }
+</style>
+</head>
+<body>
+
+<canvas id="game"></canvas>
+
+<!-- 게임 중 표시 -->
+<div id="hud">
+  <div class="hud-box hud-left">
+    <div class="hud-label">남은 시간</div>
+    <div class="hud-num" id="hud-time">60</div>
+    <div id="hud-mode">연습 모드</div>
+  </div>
+  <div id="hud-combo">2연속!</div>
+  <div class="hud-box hud-right">
+    <div class="hud-label">잡은 파리</div>
+    <div class="hud-num" id="hud-caught">0</div>
+  </div>
+</div>
+
+<!-- 1. 시작 화면 -->
+<section class="screen active" id="screen-start">
+  <h1 class="title">지금 저 파리를 <span class="hit">잡아!</span></h1>
+  <p class="rule">파리가 날아갈 곳을 보고, 박수로 잡아라!</p>
+  <p class="note">카메라 앞에서 <b>박수</b>로 잡아요 · 시작하면 카메라를 <b>허용</b>해 주세요</p>
+  <div class="modes">
+    <button class="mode" data-mode="practice">
+      <span class="mode-name">연습 모드</span>
+      <span class="mode-desc">느린 파리로 몸풀기</span>
+    </button>
+    <button class="mode selected" data-mode="main">
+      <span class="mode-name">본 게임</span>
+      <span class="mode-desc" id="main-desc">60초 · 잡을수록 빨라져요</span>
+    </button>
+  </div>
+  <div class="start-row">
+    <button class="primary" id="btn-start">시작하기</button>
+    <p class="keys"><b>Space</b> 시작 · <b>Esc</b> 처음으로 · <b>M</b> 소리 끄기</p>
+  </div>
+  <ul class="tips">
+    <li>카메라 영상은 저장되지 않아요. 손 위치를 찾는 데만 쓰고 바로 버려요.</li>
+    <li>기기는 책상 안쪽에 두고, 박수는 화면 앞 허공에서 쳐요.</li>
+  </ul>
+  <button class="corner-btn" id="btn-qr">주소 QR 보기</button>
+</section>
+
+<!-- 주소 QR -->
+<div class="modal" id="qr-modal" hidden>
+  <div class="modal-card">
+    <h2>카메라로 찍거나 아래 주소로 들어와요</h2>
+    <div id="qr-box"></div>
+    <p class="qr-url" id="qr-url"></p>
+    <button class="secondary" id="btn-qr-close">닫기 (Esc)</button>
+  </div>
+</div>
+
+<!-- 2. 자세 확인 화면 -->
+<section class="screen" id="screen-pose">
+  <div class="pose-panel">
+    <h2 class="pose-title">화면에서 한 뼘(20~30cm) 떨어져<br>두 손을 보여 주세요</h2>
+    <p class="pose-status" id="pose-status">카메라를 켜는 중…</p>
+    <div class="pose-bar"><div id="pose-bar-fill"></div></div>
+  </div>
+  <p class="keys"><b>Esc</b> 처음으로</p>
+  <div class="pose-error" id="pose-error" hidden>
+    <h2 id="pose-error-title">카메라를 켤 수 없어요</h2>
+    <p id="pose-error-msg"></p>
+    <div class="buttons">
+      <button class="primary" id="btn-retry">다시 시도</button>
+      <button class="secondary" id="btn-pose-home">처음으로</button>
+    </div>
+  </div>
+</section>
+
+<!-- 3. 카운트다운 -->
+<section class="screen" id="screen-countdown">
+  <div id="countdown-num">3</div>
+  <div id="countdown-hint">준비!</div>
+</section>
+
+<!-- 4. 결과 화면 -->
+<section class="screen" id="screen-result">
+  <div class="result-head">
+    <h2>끝!</h2>
+    <span class="tag" id="r-mode">본 게임</span>
+  </div>
+  <div class="hero">
+    <div class="hero-label">잡은 파리</div>
+    <div class="hero-num"><span id="r-caught">0</span><small>마리</small></div>
+    <div class="badge" id="r-newbest">새 기록!</div>
+  </div>
+  <div class="stats">
+    <div class="stat"><div class="stat-label">헛박수</div><div class="stat-num" id="r-misses">0</div></div>
+    <div class="stat"><div class="stat-label">최고 콤보</div><div class="stat-num" id="r-combo">0</div></div>
+    <div class="stat"><div class="stat-label">명중률</div><div class="stat-num" id="r-acc">-</div></div>
+    <div class="stat"><div class="stat-label">최고 기록</div><div class="stat-num" id="r-best">0</div></div>
+  </div>
+  <p class="sub" id="r-escaped">날아간 파리 0마리</p>
+  <div class="buttons">
+    <button class="primary" id="btn-again">다시 하기</button>
+    <button class="secondary" id="btn-home">처음으로</button>
+  </div>
+  <p class="keys"><b>Space</b> 다시 하기 · <b>Esc</b> 처음으로</p>
+</section>
+
+<canvas id="fx"></canvas>
+<div id="sound-pill">소리 꺼짐 · M</div>
+<div id="debug-badge">디버그 모드 · 마우스 클릭으로도 잡기 · D로 끄기</div>
+
+<script>
+/* =====================================================================
+   CONFIG: 게임 숫자는 모두 여기서 바꾼다.
+   - 속도 단위 "초당 화면 너비": 0.5면 1초에 화면 가로 길이의 절반만큼 이동
+   - 크기 단위: 화면 짧은 변(노트북은 세로, 세워 둔 아이패드는 가로) 대비 비율
+   ===================================================================== */
+const CONFIG = {
+  // ----- 한 판 -----
+  GAME_DURATION: 60,          // 한 판 시간(초)
+  WARNING_TIME: 10,           // 남은 시간이 이 값(초) 이하가 되면 시간 표시가 빨개짐
+  COUNTDOWN_FROM: 3,          // 카운트다운 시작 숫자(3이면 3·2·1)
+  COUNTDOWN_STEP: 1.0,        // 카운트다운 숫자 하나가 보이는 시간(초)
+  RESULT_INPUT_LOCK: 1.0,     // 결과 화면이 뜬 뒤 버튼·스페이스바를 잠그는 시간(초). 연타하다 '다시 하기'가 눌리는 것 방지
+
+  // ----- 파리 등장·퇴장 -----
+  FLY_STAY_TIME: 8,           // 파리 한 마리가 머무는 시간(초). 이 안에 못 잡으면 날아감
+  NEXT_FLY_DELAY_CATCH: 0.8,  // 잡은 뒤 다음 파리가 나오기까지 걸리는 시간(초)
+  NEXT_FLY_DELAY_ESCAPE: 0.4, // 파리가 날아간 뒤 다음 파리가 나오기까지 걸리는 시간(초)
+  ESCAPE_SPEED_MUL: 1.8,      // 날아갈 때 속도 배수(평소 속도 × 이 값)
+
+  // ----- 판정 -----
+  HIT_RADIUS_SCALE: 1.8,      // 박수 판정 반경 = 파리 크기 × 이 값. 손바닥이 맞닿은 곳에서 파리가 이 안에 있어야 잡힘(PRD 첫 기준은 1.3)
+  CLAP_BETWEEN_HALF: 0.6,     // '두 손 사이' 범위의 위아래 폭 = 손 길이 × 이 값(손바닥 중심에서 위로, 아래로 각각). 올리면 쉬워짐
+
+  // ----- 속도·크기 -----
+  PRACTICE_SPEED: 0.25,       // 연습 모드 속도(초당 화면 너비). 잡은 수와 상관없이 고정
+  FLY_SIZE: {                 // 파리 몸 길이(화면 짧은 변 대비). 난이도표의 size 이름과 연결됨
+    normal: 0.11,             //   보통
+    small: 0.085,             //   작게
+    tiny: 0.065,              //   아주 작게
+  },
+
+  // ----- 난이도표 (PRD '2. 난이도 상승'을 바탕으로, 크기는 그대로 두고 속도로 난도를 올림) -----
+  // minCaught: 이 수 이상 잡았을 때부터 적용
+  // speed: 속도(초당 화면 너비) / turnEvery: 갑자기 꺾는 간격 [최소, 최대](초)
+  // size: 위 FLY_SIZE 이름. PRD처럼 작아지게 하려면 'small', 'tiny'로 바꿈
+  // specials: 꺾을 때 섞어 쓰는 특수 동작. 'dash'=짧은 돌진, 'pause'=멈칫했다 출발,
+  //           'fake'=멈칫 후 반대로(가짜 동작), 'zigzag'=지그재그. 앞 단계 동작도 일부 이어서 씀
+  DIFFICULTY: [
+    { minCaught: 0,  speed: 0.35, turnEvery: [1.5, 2.5], size: 'normal', specials: [] },
+    { minCaught: 3,  speed: 0.45, turnEvery: [1.0, 2.0], size: 'normal', specials: ['dash'] },
+    { minCaught: 6,  speed: 0.55, turnEvery: [0.8, 1.5], size: 'normal', specials: ['dash', 'pause'] },
+    { minCaught: 10, speed: 0.65, turnEvery: [0.6, 1.2], size: 'normal', specials: ['dash', 'pause', 'fake'] },
+    { minCaught: 15, speed: 0.80, turnEvery: [0.4, 0.8], size: 'normal', specials: ['dash', 'fake', 'zigzag'] },
+  ],
+
+  // ----- 움직임 세부 -----
+  WANDER_TURN: 2.2,                 // 평소 부드럽게 방향을 트는 최대 회전 속도(라디안/초). 클수록 구불구불
+  WANDER_CHANGE: [0.4, 1.0],        // 부드러운 회전 방향을 새로 정하는 간격 [최소, 최대](초)
+  SHARP_TURN_DEG: [60, 150],        // 갑자기 꺾을 때 각도 범위 [최소, 최대](도)
+  DASH: { mul: 2.3, dur: 0.35 },    // 짧은 돌진: 속도 배수, 지속 시간(초)
+  PAUSE: { hold: 0.4, burstMul: 1.6, burstDur: 0.25 },  // 멈칫했다 출발: 멈춘 시간(초), 다시 출발할 때 속도 배수, 그 지속 시간(초)
+  FAKE: { hold: 0.3, burstMul: 2.0, burstDur: 0.3 },    // 가짜 동작: 멈춘 시간(초), 반대로 튈 때 속도 배수, 그 지속 시간(초)
+  ZIGZAG: { dur: 0.9, every: 0.13, angleDeg: 55, mul: 1.3 }, // 지그재그: 전체 시간(초), 좌우 바꾸는 간격(초), 꺾는 각도(도), 속도 배수
+  DODGE: { mul: 2.0, dur: 0.3 },    // 빗나갔을 때 휙 피하기: 속도 배수, 지속 시간(초)
+  MISS_SPEEDUP: 0.06,               // 빗나갈 때마다 그 파리가 빨라지는 비율(0.06 = 6%)
+  MISS_SPEEDUP_MAX: 1.3,            // 빗나가서 빨라지는 최대 배수(1.3 = 원래 속도의 130%까지)
+  WING_FLAP_HZ: 13,                 // 날개 짓 속도(초당 횟수)
+
+  // ----- 카메라·화면 -----
+  VIDEO_DARKEN: 0.55,         // 게임 중 카메라 영상을 어둡게 까는 정도(0 = 원본, 1 = 새까맣게). 파리가 안 보이면 올림
+  POSE_VIDEO_DARKEN: 0.25,    // 자세 확인 화면에서 영상을 어둡게 까는 정도(자기 모습이 잘 보이게 조금만)
+  POSE_HOLD_TIME: 2.0,        // 두 손이 이 시간(초) 이상 계속 보이면 자세 확인 통과
+  TOO_CLOSE_HAND_LEN: 0.75,   // 손 길이가 카메라 영상 세로의 이 비율보다 크면 '조금만 뒤로'
+  MAX_HANDS: 4,               // 한 번에 찾는 손 수. 이 중 가장 크게 보이는 두 손만 플레이어 손으로 씀
+  EDGE_WARN_MARGIN: 0.12,     // 손이 화면 가장자리에서 이 비율(화면 크기 대비) 안쪽에서 사라지면 '손이 화면 밖이에요'
+
+  // ----- 박수 감도 (모든 거리는 '손 길이(손목~중지 끝)' 기준이라 거리·사람에 상관없이 같은 감도) -----
+  HAND_WIDTH_RATIO: 0.45,     // 손 너비 = 손 길이 × 이 값. 박수 칠 땐 손이 옆으로 서서 너비가 안 보여 길이로 계산
+  CLAP_DIST: 1.0,             // 두 손바닥 중심 거리가 '손 너비 × 이 값' 이하가 되면 박수. 올리면 덜 붙여도 박수로 인정(쉬워짐). PRD 첫 기준은 0.8
+  CLAP_WINDOW: 0.25,          // 이 시간(초) 안에 빠르게 가까워져야 박수. 올리면 천천히 모아도 인정(쉬워짐)
+  CLAP_MIN_APPROACH: 0.4,     // 위 시간 안에 '손 길이 × 이 값' 이상 가까워져야 박수. 내리면 작은 박수도 인정(쉬워짐)
+  CLAP_LOST_NEAR: 2.5,        // 손이 사라지기 직전 거리가 '손 너비 × 이 값' 이하였으면 '다가오다 사라짐' 박수로 인정
+  CLAP_LOST_GRACE: 0.15,      // 두 손이 마지막으로 함께 보인 뒤 이 시간(초) 안에 사라져야 '사라짐' 박수로 인정
+  CLAP_COOLDOWN: 0.4,         // 박수 한 번 뒤 이 시간(초) 동안은 다음 박수를 받지 않음(연타 방지)
+
+  // ----- 소리 (교실에서 여러 대가 함께 울리므로 기본은 작게) -----
+  VOLUME: 0.25,               // 전체 볼륨(0~1). M 키로 껐다 켬
+  BUZZ_VOLUME: 0.35,          // 파리 '윙윙' 크기(전체 볼륨 안에서의 비율)
+  BUZZ_HZ: [170, 330],        // 윙윙 높낮이 [가장 느릴 때, 가장 빠를 때](Hz). 빠를수록 높게
+  LAST_SECONDS_BUZZ_BOOST: 1.6, // 마지막 10초에 윙윙 소리를 이 배수만큼 크게
+
+  // ----- 성능 -----
+  SLOW_DETECT_MS: 28,         // 손 인식 한 번이 평균 이 시간(ms)보다 오래 걸리면 저사양 모드로 바꿈
+  SLOW_FRAME_MS: 26,          // 화면 한 장 그리는 데 평균 이 시간(ms)보다 오래 걸리면 저사양 모드로 바꿈
+                              // 저사양 모드: 화면 해상도를 낮추고, 손을 2개까지만 찾음(세 번째 손 거르기 기능은 꺼짐)
+};
+
+/* =====================================================================
+   기본 준비
+   ===================================================================== */
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+const $ = (id) => document.getElementById(id);
+const FONT = getComputedStyle(document.body).fontFamily;
+
+const fxCanvas = document.getElementById('fx');   // 결과 화면 축하 효과(화면 맨 위 층)
+const fxCtx = fxCanvas.getContext('2d');
+
+let W = 0, H = 0, DPR = 1, bgGradient = null;
+
+// 성능 측정과 저사양 모드
+const perf = { detectMs: 0, frameMs: 16, slowT: 0, low: false };
+
+function resize() {
+  DPR = Math.min(window.devicePixelRatio || 1, perf.low ? 1 : 2);
+  W = window.innerWidth;
+  H = window.innerHeight;
+  for (const [c, cx] of [[canvas, ctx], [fxCanvas, fxCtx]]) {
+    c.width = Math.round(W * DPR);
+    c.height = Math.round(H * DPR);
+    cx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  }
+  bgGradient = ctx.createRadialGradient(W / 2, H * 0.45, 0, W / 2, H * 0.45, Math.hypot(W, H) * 0.6);
+  bgGradient.addColorStop(0, '#2a3a4c');
+  bgGradient.addColorStop(1, '#121a24');
+  const f = state.fly;
+  if (f && f.inside) {
+    const r = flySizePx(f) * 0.55;
+    f.x = clamp(f.x, r, W - r);
+    f.y = clamp(f.y, r, H - r);
+  }
+}
+
+const rand = (a, b) => a + Math.random() * (b - a);
+const randRange = (arr) => rand(arr[0], arr[1]);
+const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
+const randSign = () => (Math.random() < 0.5 ? -1 : 1);
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const rad = (deg) => (deg * Math.PI) / 180;
+
+/* =====================================================================
+   게임 상태
+   ===================================================================== */
+const state = {
+  screen: 'start',        // 'start' | 'pose' | 'countdown' | 'game' | 'result'
+  mode: 'main',           // 'practice' | 'main'
+  running: false,
+  timeLeft: CONFIG.GAME_DURATION,
+  caught: 0,
+  misses: 0,              // 헛박수
+  escaped: 0,             // 날아간(놓친) 파리
+  combo: 0,
+  maxCombo: 0,
+  fly: null,
+  nextSpawnIn: null,      // 다음 파리 등장까지 남은 시간(초), 예약 없으면 null
+  lastSide: null,         // 직전 파리가 나온 가장자리
+  countdownT: 0,
+  countdownShown: null,
+  resultUnlockAt: 0,
+  best: { practice: 0, main: 0 },  // 개인 최고 기록(페이지를 닫으면 사라짐)
+  debug: false,           // D 키: 손 인식 정보 표시 + 마우스 클릭으로도 잡기
+  lastTickSec: null,      // 마지막 10초 '째깍'을 낸 초
+};
+
+// 화면 효과(판정 원, 별, 글자)
+const effects = { rings: [], stars: [], texts: [] };
+
+/* =====================================================================
+   화면 전환
+   ===================================================================== */
+const screens = ['start', 'pose', 'countdown', 'result'];
+
+function showScreen(name) {
+  state.screen = name;
+  for (const s of screens) $('screen-' + s).classList.toggle('active', s === name);
+  $('hud').classList.toggle('active', name === 'countdown' || name === 'game');
+}
+
+function selectMode(mode) {
+  state.mode = mode;
+  document.querySelectorAll('.mode').forEach((b) => b.classList.toggle('selected', b.dataset.mode === mode));
+}
+
+function startFlow() {
+  if (state.screen !== 'start' && state.screen !== 'result') return;
+  if (state.screen === 'result' && performance.now() < state.resultUnlockAt) return;
+  sound.init();   // 브라우저는 사용자가 누른 순간에만 소리를 켜게 해 줌
+  stopConfetti();
+  resetRound();
+  showScreen('pose');
+  enterPose();
+}
+
+function startCountdown() {
+  resetRound();
+  showScreen('countdown');
+  state.countdownT = 0;
+  state.countdownShown = null;
+}
+
+function resetRound() {
+  state.running = false;
+  state.timeLeft = CONFIG.GAME_DURATION;
+  state.caught = 0;
+  state.misses = 0;
+  state.escaped = 0;
+  state.combo = 0;
+  state.maxCombo = 0;
+  state.fly = null;
+  state.nextSpawnIn = null;
+  state.lastSide = null;
+  effects.rings.length = 0;
+  effects.stars.length = 0;
+  effects.texts.length = 0;
+  $('hud-mode').style.display = state.mode === 'practice' ? '' : 'none';
+  updateHud();
+}
+
+function beginPlay() {
+  showScreen('game');
+  state.running = true;
+  state.lastTickSec = null;
+  spawnFly();
+  addText('잡아라!', W / 2, H / 2, { size: Math.min(W, H) * 0.12, dur: 0.8, color: '#ffd447' });
+  sound.beep(990);
+}
+
+function endGame() {
+  state.running = false;
+  state.fly = null;
+  state.nextSpawnIn = null;
+  stopCamera();
+  const claps = state.caught + state.misses;
+  const prevBest = state.best[state.mode];
+  const isNew = state.caught > prevBest;
+  if (isNew) state.best[state.mode] = state.caught;
+
+  $('r-mode').textContent = state.mode === 'practice' ? '연습 모드' : '본 게임';
+  countUp($('r-caught'), state.caught, 900);
+  $('r-misses').textContent = state.misses;
+  $('r-combo').textContent = state.maxCombo;
+  $('r-acc').innerHTML = claps ? Math.round((state.caught / claps) * 100) + '<small>%</small>' : '-';
+  $('r-best').textContent = state.best[state.mode];
+  $('r-newbest').classList.toggle('show', isNew && state.caught > 0);
+  $('r-escaped').textContent = `날아간 파리 ${state.escaped}마리`;
+
+  showScreen('result');
+  if (state.caught > 0) {
+    startConfetti(isNew ? 160 : 90);
+    sound.fanfare();
+  }
+  state.resultUnlockAt = performance.now() + CONFIG.RESULT_INPUT_LOCK * 1000;
+  const btns = [$('btn-again'), $('btn-home')];
+  btns.forEach((b) => (b.disabled = true));
+  setTimeout(() => btns.forEach((b) => (b.disabled = false)), CONFIG.RESULT_INPUT_LOCK * 1000);
+}
+
+function goHome() {
+  pose.token++;   // 켜지는 중이던 카메라·모델 작업은 무시
+  stopCamera();
+  stopConfetti();
+  resetRound();
+  showScreen('start');
+}
+
+/* =====================================================================
+   HUD
+   ===================================================================== */
+let hudCache = {};
+function updateHud() {
+  const t = Math.max(0, Math.ceil(state.timeLeft));
+  if (hudCache.t !== t) { $('hud-time').textContent = t; hudCache.t = t; }
+  const warn = state.timeLeft <= CONFIG.WARNING_TIME;
+  if (hudCache.warn !== warn) { $('hud-time').classList.toggle('warn', warn); hudCache.warn = warn; }
+  if (hudCache.caught !== state.caught) { $('hud-caught').textContent = state.caught; hudCache.caught = state.caught; }
+  const combo = $('hud-combo');
+  combo.classList.toggle('show', state.combo >= 2);
+}
+
+function restartAnim(el, cls) {
+  el.classList.remove(cls);
+  void el.offsetWidth;
+  el.classList.add(cls);
+}
+
+/* =====================================================================
+   파리
+   ===================================================================== */
+function getLevel(caught) {
+  let level = CONFIG.DIFFICULTY[0];
+  for (const lv of CONFIG.DIFFICULTY) if (caught >= lv.minCaught) level = lv;
+  return level;
+}
+
+function flySizePx(f) {
+  return (CONFIG.FLY_SIZE[f.level.size] || CONFIG.FLY_SIZE.normal) * Math.min(W, H);
+}
+
+function spawnFly() {
+  const sides = ['top', 'bottom', 'left', 'right'].filter((s) => s !== state.lastSide);
+  const side = pick(sides);
+  state.lastSide = side;
+
+  const level = getLevel(state.caught);
+  const f = {
+    level,
+    speedFrac: state.mode === 'practice' ? CONFIG.PRACTICE_SPEED : level.speed,
+    x: 0, y: 0, angle: 0,
+    state: 'flying',          // 'flying' | 'leaving' | 'squashed'
+    age: 0,
+    inside: false,            // 화면 안으로 완전히 들어왔는지(그 전엔 벽 튕김 없음)
+    enterT: 0,
+    curMul: 1,
+    dodgeBonus: 1,
+    turnRate: 0, turnTarget: 0,
+    wanderIn: randRange(CONFIG.WANDER_CHANGE),
+    eventIn: randRange(level.turnEvery),
+    action: null,
+    wingPhase: Math.random() * Math.PI * 2,
+    squashT: 0,
+  };
+  const m = flySizePx(f);
+  if (side === 'top')    { f.x = rand(0.15, 0.85) * W; f.y = -m; }
+  if (side === 'bottom') { f.x = rand(0.15, 0.85) * W; f.y = H + m; }
+  if (side === 'left')   { f.x = -m; f.y = rand(0.15, 0.85) * H; }
+  if (side === 'right')  { f.x = W + m; f.y = rand(0.15, 0.85) * H; }
+  f.angle = Math.atan2(rand(0.25, 0.75) * H - f.y, rand(0.25, 0.75) * W - f.x);
+  state.fly = f;
+}
+
+function triggerEvent(f) {
+  const type = pick(['turn', ...f.level.specials]);
+  if (type === 'turn') {
+    f.angle += randSign() * rad(randRange(CONFIG.SHARP_TURN_DEG));
+    f.turnRate = 0;
+  } else {
+    startAction(f, type);
+  }
+}
+
+function startAction(f, type) {
+  f.action = { type, t: 0, go: false, base: f.angle, zig: 1, zigT: 0 };
+  if (type === 'dash') f.angle += randSign() * rad(rand(0, 35));
+}
+
+// 특수 동작을 한 프레임 진행하고, 이번 프레임의 속도 배수를 돌려준다
+function updateAction(f, dt) {
+  const a = f.action;
+  const C = CONFIG;
+  a.t += dt;
+  const STOP = 0.04;
+  switch (a.type) {
+    case 'dash':
+      if (a.t < C.DASH.dur) return C.DASH.mul;
+      break;
+    case 'pause':
+      if (a.t < C.PAUSE.hold) return STOP;
+      if (!a.go) { a.go = true; f.angle += randSign() * rad(rand(20, 80)); }
+      if (a.t < C.PAUSE.hold + C.PAUSE.burstDur) return C.PAUSE.burstMul;
+      break;
+    case 'fake':
+      if (a.t < 0.12) return 1.6;                       // 가던 쪽으로 살짝 내미는 척
+      if (a.t < 0.12 + C.FAKE.hold) return STOP;        // 멈칫
+      if (!a.go) { a.go = true; f.angle += Math.PI + rad(rand(-20, 20)); }  // 반대로
+      if (a.t < 0.12 + C.FAKE.hold + C.FAKE.burstDur) return C.FAKE.burstMul;
+      break;
+    case 'zigzag':
+      a.zigT += dt;
+      if (a.zigT >= C.ZIGZAG.every) { a.zigT -= C.ZIGZAG.every; a.zig *= -1; }
+      f.angle = a.base + a.zig * rad(C.ZIGZAG.angleDeg);
+      if (a.t < C.ZIGZAG.dur) return C.ZIGZAG.mul;
+      f.angle = a.base;
+      break;
+    case 'dodge':
+      if (a.t < C.DODGE.dur) return C.DODGE.mul;
+      break;
+  }
+  f.action = null;
+  return 1;
+}
+
+function startLeaving(f) {
+  f.state = 'leaving';
+  f.action = null;
+  const d = { left: f.x, right: W - f.x, top: f.y, bottom: H - f.y };
+  const edge = Object.keys(d).reduce((a, b) => (d[a] < d[b] ? a : b));
+  const dir = { left: Math.PI, right: 0, top: -Math.PI / 2, bottom: Math.PI / 2 }[edge];
+  f.angle = dir + rand(-0.3, 0.3);
+}
+
+function updateFly(f, dt) {
+  if (f.state === 'squashed') { f.squashT += dt; return; }
+
+  f.wingPhase += dt * Math.PI * 2 * CONFIG.WING_FLAP_HZ;
+  f.age += dt;
+  if (f.state === 'flying' && f.age >= CONFIG.FLY_STAY_TIME) startLeaving(f);
+
+  const size = flySizePx(f);
+  const r = size * 0.55;
+  let targetMul = 1;
+
+  if (f.state === 'leaving') {
+    targetMul = CONFIG.ESCAPE_SPEED_MUL;
+  } else if (!f.inside) {
+    // 화면 안으로 들어오는 중: 가운데 쪽으로 방향을 맞춘다
+    f.enterT += dt;
+    const want = Math.atan2(H / 2 - f.y, W / 2 - f.x);
+    let diff = Math.atan2(Math.sin(want - f.angle), Math.cos(want - f.angle));
+    f.angle += clamp(diff, -3 * dt, 3 * dt);
+    if (f.action && f.action.type === 'dodge') targetMul = updateAction(f, dt);
+  } else {
+    if (!f.action) {
+      // 평소: 부드럽게 방향 틀기
+      f.wanderIn -= dt;
+      if (f.wanderIn <= 0) {
+        f.turnTarget = rand(-CONFIG.WANDER_TURN, CONFIG.WANDER_TURN);
+        f.wanderIn = randRange(CONFIG.WANDER_CHANGE);
+      }
+      f.turnRate += (f.turnTarget - f.turnRate) * Math.min(1, dt * 3);
+      f.angle += f.turnRate * dt;
+      // 난이도표 간격마다 갑자기 꺾기 / 특수 동작
+      f.eventIn -= dt;
+      if (f.eventIn <= 0) {
+        triggerEvent(f);
+        f.eventIn = randRange(f.level.turnEvery);
+      }
+    }
+    if (f.action) targetMul = updateAction(f, dt);
+  }
+
+  f.curMul += (targetMul - f.curMul) * (1 - Math.exp(-14 * dt));
+  const v = f.speedFrac * W * f.dodgeBonus * f.curMul;
+  f.x += Math.cos(f.angle) * v * dt;
+  f.y += Math.sin(f.angle) * v * dt;
+
+  if (f.state === 'leaving') {
+    if (f.x < -size || f.x > W + size || f.y < -size || f.y > H + size) flyEscaped(f);
+    return;
+  }
+
+  if (!f.inside) {
+    if ((f.x >= r && f.x <= W - r && f.y >= r && f.y <= H - r) || f.enterT > 3) {
+      f.inside = true;
+      f.x = clamp(f.x, r, W - r);
+      f.y = clamp(f.y, r, H - r);
+    }
+    return;
+  }
+
+  // 벽에 닿으면 튕기기
+  const zig = f.action && f.action.type === 'zigzag' ? f.action : null;
+  if (f.x < r || f.x > W - r) {
+    f.x = clamp(f.x, r, W - r);
+    f.angle = Math.PI - f.angle;
+    if (zig) zig.base = Math.PI - zig.base;
+  }
+  if (f.y < r || f.y > H - r) {
+    f.y = clamp(f.y, r, H - r);
+    f.angle = -f.angle;
+    if (zig) zig.base = -zig.base;
+  }
+}
+
+function flyEscaped(f) {
+  state.escaped++;
+  state.combo = 0;
+  state.fly = null;
+  state.nextSpawnIn = CONFIG.NEXT_FLY_DELAY_ESCAPE;
+  const tx = clamp(f.x, W * 0.12, W * 0.88);
+  const ty = clamp(f.y, H * 0.12, H * 0.88);
+  addText('날아갔다~', tx, ty, { size: Math.min(W, H) * 0.05, dur: 0.9, color: '#b9c6d6' });
+  updateHud();
+}
+
+/* =====================================================================
+   판정: 박수 한 번 = judgeClap(x, y, zone) 한 번. (x, y)는 화면 좌표.
+   카메라 박수는 zone(박수 직전 두 손 사이 범위)을 넘겨, 파리가 두 손 사이에 있었고
+   손바닥이 맞닿은 곳 가까이에 있을 때만 잡힌다. 디버그 모드 마우스 클릭은 zone 없이 거리만 본다.
+   반환값: 'hit' | 'miss' | 'ignored'
+   ===================================================================== */
+function judgeClap(x, y, zone) {
+  if (!state.running) return 'ignored';
+  const f = state.fly;
+  if (!f || f.state === 'squashed') return 'ignored';
+
+  const size = flySizePx(f);
+  const radius = size * CONFIG.HIT_RADIUS_SCALE;
+  const near = Math.hypot(f.x - x, f.y - y) <= radius;
+  const between = !zone || isBetween(zone, f, size * 0.5);
+  const hit = near && between;
+  effects.rings.push({ x, y, r: radius, t: 0, dur: 0.45, color: hit ? '255,212,71' : '255,255,255' });
+
+  if (hit) {
+    catchFly(f);
+    return 'hit';
+  }
+  missFly(f, x, y);
+  if (near && !between) addText('손 사이로!', x, y + radius * 0.6, { size: Math.min(W, H) * 0.045, dur: 0.8, color: '#ffb468' });
+  return 'miss';
+}
+
+function catchFly(f) {
+  f.state = 'squashed';
+  f.squashT = 0;
+  f.action = null;
+  state.caught++;
+  state.combo++;
+  state.maxCombo = Math.max(state.maxCombo, state.combo);
+  state.nextSpawnIn = CONFIG.NEXT_FLY_DELAY_CATCH;
+
+  const size = flySizePx(f);
+  for (let i = 0; i < 6; i++) {
+    const a = (i / 6) * Math.PI * 2 + rand(-0.3, 0.3);
+    const sp = size * rand(1.6, 2.4);
+    effects.stars.push({ x: f.x, y: f.y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, rot: rand(0, 6), vr: rand(-6, 6), r: size * rand(0.13, 0.2), t: 0, dur: 0.75 });
+  }
+  addText('찰싹!', f.x, f.y - size * 0.9, { size: Math.min(W, H) * 0.07, dur: 0.7, color: '#ffffff' });
+
+  updateHud();
+  if (state.combo >= 2) {
+    const el = $('hud-combo');
+    el.textContent = `${state.combo}연속!`;
+    el.classList.toggle('hot', state.combo >= 5);
+    restartAnim(el, 'pop');
+  }
+  sound.slap();
+}
+
+function missFly(f, x, y) {
+  state.misses++;
+  state.combo = 0;
+  updateHud();
+  f.dodgeBonus = Math.min(CONFIG.MISS_SPEEDUP_MAX, f.dodgeBonus * (1 + CONFIG.MISS_SPEEDUP));
+  if (f.state === 'flying') {
+    if (f.inside) f.angle = Math.atan2(f.y - y, f.x - x) + rand(-0.4, 0.4);  // 클릭 반대쪽으로 휙
+    f.action = { type: 'dodge', t: 0 };
+  }
+  const size = flySizePx(f);
+  addText('휙!', f.x, f.y - size * 0.8, { size: Math.min(W, H) * 0.05, dur: 0.5, color: '#b9c6d6' });
+  sound.whoosh();
+}
+
+/* =====================================================================
+   효과
+   ===================================================================== */
+function addText(text, x, y, { size = 40, dur = 0.7, color = '#fff' } = {}) {
+  effects.texts.push({ text, x, y, size, dur, color, t: 0 });
+}
+
+function updateEffects(dt) {
+  for (const list of [effects.rings, effects.stars, effects.texts]) {
+    for (const e of list) e.t += dt;
+    for (let i = list.length - 1; i >= 0; i--) if (list[i].t >= list[i].dur) list.splice(i, 1);
+  }
+  for (const s of effects.stars) {
+    s.x += s.vx * dt; s.y += s.vy * dt;
+    s.vx *= Math.exp(-3 * dt); s.vy *= Math.exp(-3 * dt);
+    s.rot += s.vr * dt;
+  }
+}
+
+/* =====================================================================
+   그리기
+   ===================================================================== */
+function drawBackground() {
+  ctx.fillStyle = bgGradient;
+  ctx.fillRect(0, 0, W, H);
+}
+
+function ellipsePath(x, y, rx, ry) {
+  ctx.beginPath();
+  ctx.ellipse(x, y, rx, ry, 0, 0, Math.PI * 2);
+}
+
+// 파리 그리기: 위에서 내려다본 만화풍. 몸 길이 = 1 단위로 그린 뒤 크기만큼 확대
+function drawFly(f) {
+  const size = flySizePx(f);
+  let sx = 1, sy = 1, alpha = 1;
+  const squashed = f.state === 'squashed';
+  if (squashed) {
+    const p = Math.min(1, f.squashT / 0.12);
+    sx = 1 - 0.5 * p;     // 양손으로 좌우에서 친 것처럼 납작
+    sy = 1 + 0.3 * p;
+    alpha = clamp((CONFIG.NEXT_FLY_DELAY_CATCH - f.squashT) / 0.25, 0, 1);
+  }
+
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  ctx.translate(f.x, f.y);
+
+  // 그림자
+  ctx.save();
+  ctx.translate(size * 0.06, size * 0.22);
+  ctx.scale(sx, sy);
+  ctx.rotate(f.angle);
+  ctx.fillStyle = 'rgba(0,0,0,0.28)';
+  ellipsePath(0, 0, size * 0.5, size * 0.3);
+  ctx.fill();
+  ctx.restore();
+
+  ctx.scale(sx, sy);
+  ctx.rotate(f.angle);
+  ctx.scale(size, size);
+  ctx.lineJoin = 'round';
+  ctx.lineCap = 'round';
+
+  const RIM = 'rgba(255,255,255,0.85)';
+  const INK = '#15171c';
+
+  // 다리
+  const wig = squashed ? 0 : Math.sin(f.wingPhase * 0.18) * 0.02;
+  const legs = [
+    [0.20, 0.30, 0.22, 0.40, 0.30],
+    [0.12, 0.12, 0.27, 0.10, 0.37],
+    [0.04, -0.04, 0.25, -0.15, 0.34],
+  ];
+  const legPath = (side) => {
+    ctx.beginPath();
+    legs.forEach(([bx, kx, ky, fx, fy], i) => {
+      const w = i % 2 ? -wig : wig;
+      ctx.moveTo(bx, side * 0.06);
+      ctx.lineTo(kx, side * ky);
+      ctx.lineTo(fx + w, side * (fy + w));
+    });
+  };
+  for (const side of [-1, 1]) {
+    legPath(side);
+    ctx.strokeStyle = RIM; ctx.lineWidth = 0.09; ctx.stroke();
+  }
+  for (const side of [-1, 1]) {
+    legPath(side);
+    ctx.strokeStyle = INK; ctx.lineWidth = 0.035; ctx.stroke();
+  }
+
+  // 몸 테두리(밝은 배경·어두운 카메라 영상 어디서든 잘 보이도록)
+  const parts = [
+    () => ellipsePath(-0.17, 0, 0.30, 0.21),   // 배
+    () => ellipsePath(0.12, 0, 0.17, 0.17),    // 가슴
+    () => ellipsePath(0.33, 0, 0.13, 0.13),    // 머리
+    () => ellipsePath(0.36, -0.105, 0.1, 0.09), // 눈
+    () => ellipsePath(0.36, 0.105, 0.1, 0.09),
+  ];
+  ctx.strokeStyle = RIM; ctx.lineWidth = 0.13;
+  for (const p of parts) { p(); ctx.stroke(); }
+
+  // 배
+  const g = ctx.createLinearGradient(0, -0.21, 0, 0.21);
+  g.addColorStop(0, '#5a6274');
+  g.addColorStop(1, '#2b2f38');
+  ctx.fillStyle = g;
+  parts[0](); ctx.fill();
+  ctx.strokeStyle = INK; ctx.lineWidth = 0.035; ctx.stroke();
+  ctx.strokeStyle = '#7a8398'; ctx.lineWidth = 0.03;
+  for (const sx2 of [-0.1, -0.24]) {
+    ctx.beginPath();
+    ctx.ellipse(sx2, 0, 0.05, 0.17, 0, -Math.PI / 2, Math.PI / 2);
+    ctx.stroke();
+  }
+
+  // 가슴
+  ctx.fillStyle = '#3a404c';
+  parts[1](); ctx.fill();
+  ctx.strokeStyle = INK; ctx.lineWidth = 0.035; ctx.stroke();
+  ctx.fillStyle = 'rgba(255,255,255,0.22)';
+  ellipsePath(0.15, -0.06, 0.07, 0.04); ctx.fill();
+
+  // 머리
+  ctx.fillStyle = '#2f343e';
+  parts[2](); ctx.fill();
+  ctx.strokeStyle = INK; ctx.lineWidth = 0.035; ctx.stroke();
+
+  // 눈
+  for (const side of [-1, 1]) {
+    const eg = ctx.createRadialGradient(0.38, side * 0.09, 0.01, 0.36, side * 0.105, 0.11);
+    eg.addColorStop(0, '#ff7a6b');
+    eg.addColorStop(1, '#a8261c');
+    ctx.fillStyle = eg;
+    parts[side < 0 ? 3 : 4](); ctx.fill();
+    ctx.strokeStyle = INK; ctx.lineWidth = 0.03; ctx.stroke();
+    if (squashed) {
+      // 기절한 X 눈
+      ctx.strokeStyle = '#fff'; ctx.lineWidth = 0.03;
+      const cx = 0.36, cy = side * 0.105, d = 0.045;
+      ctx.beginPath();
+      ctx.moveTo(cx - d, cy - d); ctx.lineTo(cx + d, cy + d);
+      ctx.moveTo(cx + d, cy - d); ctx.lineTo(cx - d, cy + d);
+      ctx.stroke();
+    } else {
+      ctx.fillStyle = 'rgba(255,255,255,0.9)';
+      ellipsePath(0.39, side * 0.105 - 0.03, 0.028, 0.022); ctx.fill();
+    }
+  }
+
+  // 날개(파닥파닥 + 잔상)
+  const flap = squashed ? 0.4 : 0.5 + 0.5 * Math.sin(f.wingPhase);
+  const drawWing = (side, theta, a) => {
+    ctx.save();
+    ctx.translate(0.08, side * 0.07);
+    ctx.rotate(Math.PI - side * theta);
+    ctx.globalAlpha = alpha * a;
+    ellipsePath(0.3, 0, 0.32, 0.12);
+    ctx.fillStyle = 'rgba(205,232,255,0.55)';
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(255,255,255,0.9)'; ctx.lineWidth = 0.025; ctx.stroke();
+    ctx.strokeStyle = 'rgba(120,150,180,0.6)'; ctx.lineWidth = 0.015;
+    ctx.beginPath(); ctx.moveTo(0.04, 0); ctx.quadraticCurveTo(0.3, side * 0.02, 0.56, 0); ctx.stroke();
+    ctx.restore();
+  };
+  for (const side of [-1, 1]) {
+    if (!squashed) drawWing(side, 0.3 + 0.75 * (1 - flap), 0.22);
+    drawWing(side, 0.3 + 0.75 * flap, 1);
+  }
+
+  ctx.restore();
+}
+
+function drawStar(x, y, r, rot) {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.rotate(rot);
+  ctx.beginPath();
+  for (let i = 0; i < 10; i++) {
+    const rr = i % 2 ? r * 0.45 : r;
+    const a = (i / 10) * Math.PI * 2 - Math.PI / 2;
+    ctx.lineTo(Math.cos(a) * rr, Math.sin(a) * rr);
+  }
+  ctx.closePath();
+  ctx.fillStyle = '#ffd447';
+  ctx.fill();
+  ctx.strokeStyle = '#8a6400';
+  ctx.lineWidth = Math.max(1.5, r * 0.12);
+  ctx.lineJoin = 'round';
+  ctx.stroke();
+  ctx.restore();
+}
+
+function drawEffects() {
+  for (const e of effects.rings) {
+    const p = e.t / e.dur;
+    ctx.beginPath();
+    ctx.arc(e.x, e.y, e.r * (0.35 + 0.65 * Math.sqrt(p)), 0, Math.PI * 2);
+    ctx.strokeStyle = `rgba(${e.color},${0.8 * (1 - p)})`;
+    ctx.lineWidth = Math.max(3, Math.min(W, H) * 0.008);
+    ctx.stroke();
+  }
+  for (const s of effects.stars) {
+    const p = s.t / s.dur;
+    ctx.globalAlpha = 1 - p * p;
+    drawStar(s.x, s.y, s.r * (0.6 + 0.4 * Math.min(1, p * 4)), s.rot);
+  }
+  ctx.globalAlpha = 1;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  for (const e of effects.texts) {
+    const p = e.t / e.dur;
+    ctx.globalAlpha = 1 - p * p;
+    ctx.font = `900 ${e.size}px ${FONT}`;
+    const y = e.y - p * e.size * 0.6;
+    ctx.lineWidth = e.size * 0.14;
+    ctx.strokeStyle = 'rgba(0,0,0,0.55)';
+    ctx.strokeText(e.text, e.x, y);
+    ctx.fillStyle = e.color;
+    ctx.fillText(e.text, e.x, y);
+  }
+  ctx.globalAlpha = 1;
+}
+
+/* =====================================================================
+   카메라
+   영상은 화면에 그리고 손 위치를 계산하는 데만 쓴다. 저장·전송·녹화하지 않는다.
+   ===================================================================== */
+const video = document.createElement('video');
+video.setAttribute('playsinline', '');
+video.muted = true;
+video.autoplay = true;
+
+const cam = { stream: null, ready: false, starting: null };
+
+class CameraError extends Error {
+  constructor(kind) { super(kind); this.kind = kind; }
+}
+
+function startCamera() {
+  if (cam.stream) return Promise.resolve();
+  if (!cam.starting) cam.starting = openCamera().finally(() => { cam.starting = null; });
+  return cam.starting;
+}
+
+async function openCamera() {
+  if (!window.isSecureContext || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    throw new CameraError('insecure');
+  }
+  let stream;
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({
+      audio: false,   // 마이크는 쓰지 않는다
+      video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } },
+    });
+  } catch (err) {
+    const kinds = { NotAllowedError: 'denied', SecurityError: 'denied', NotFoundError: 'notfound', OverconstrainedError: 'notfound', NotReadableError: 'busy', AbortError: 'busy' };
+    throw new CameraError(kinds[err.name] || 'unknown');
+  }
+  cam.stream = stream;
+  video.srcObject = stream;
+  await video.play().catch(() => {});
+  if (video.readyState < 2) await new Promise((r) => video.addEventListener('loadeddata', r, { once: true }));
+  cam.ready = true;
+  watchVideoFrames();
+}
+
+function stopCamera() {
+  if (cam.stream) cam.stream.getTracks().forEach((t) => t.stop());
+  cam.stream = null;
+  cam.ready = false;
+  video.srcObject = null;
+  resetTracking();
+}
+
+// 카메라 영상을 화면에 꽉 차게(넘치는 부분은 잘라서) 놓았을 때의 위치
+function videoRect() {
+  const vw = video.videoWidth || 640, vh = video.videoHeight || 480;
+  const s = Math.max(W / vw, H / vh);
+  const dw = vw * s, dh = vh * s;
+  return { vw, vh, dw, dh, s, ox: (W - dw) / 2, oy: (H - dh) / 2 };
+}
+
+// 좌우 반전(거울) 영상 + 어둡게 덮기
+function drawVideo(darken) {
+  const r = videoRect();
+  ctx.save();
+  ctx.translate(W, 0);
+  ctx.scale(-1, 1);
+  ctx.drawImage(video, r.ox, r.oy, r.dw, r.dh);
+  ctx.restore();
+  ctx.fillStyle = `rgba(10,16,24,${darken})`;
+  ctx.fillRect(0, 0, W, H);
+}
+
+/* =====================================================================
+   손 인식 (MediaPipe Hand Landmarker)
+   ===================================================================== */
+const MP_BASE = 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.35';
+const HAND_MODEL_URL = 'https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task';
+const handModel = { landmarker: null, loading: null };
+
+function loadHandModel() {
+  if (handModel.landmarker) return Promise.resolve();
+  if (!handModel.loading) {
+    handModel.loading = (async () => {
+      const { FilesetResolver, HandLandmarker } = await import(`${MP_BASE}/vision_bundle.mjs`);
+      const fileset = await FilesetResolver.forVisionTasks(`${MP_BASE}/wasm`);
+      const options = (delegate) => ({
+        baseOptions: { modelAssetPath: HAND_MODEL_URL, delegate },
+        runningMode: 'VIDEO',
+        numHands: CONFIG.MAX_HANDS,
+      });
+      try {
+        handModel.landmarker = await HandLandmarker.createFromOptions(fileset, options('GPU'));
+      } catch (e) {
+        handModel.landmarker = await HandLandmarker.createFromOptions(fileset, options('CPU'));
+      }
+    })();
+    handModel.loading.catch(() => { handModel.loading = null; });
+  }
+  return handModel.loading;
+}
+
+const dist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
+const midpoint = (a, b) => ({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 });
+
+const track = {
+  lastVideoTime: -1,
+  all: [],                 // 이번에 잡힌 모든 손(큰 순서)
+  players: [],             // 그중 가장 크게 보이는 두 손
+  outEdges: new Set(),     // '손이 화면 밖이에요'를 띄울 가장자리
+  lostEdges: new Set(),    // 손이 사라진 가장자리(두 손이 다시 보일 때까지 유지)
+  detectTimes: [],         // 최근 1초 동안의 손 인식 시각(디버그: 초당 횟수)
+  lastCaptureTime: 0,      // 마지막 카메라 프레임이 찍힌 시각(브라우저가 알려 줄 때만)
+  frameStart: 0,           // 지금 처리 중인 프레임의 시작 시각
+  pendingLatency: null,    // 박수가 났고 아직 화면에 안 그린 경우 그 시작 시각
+  latencyMs: null,         // 마지막 박수 → 판정 표시까지 걸린 시간
+};
+
+// 카메라 프레임이 찍힌 시각 기록(지원하는 브라우저에서만)
+function watchVideoFrames() {
+  if (!('requestVideoFrameCallback' in HTMLVideoElement.prototype)) return;
+  const cb = (now, meta) => {
+    track.lastCaptureTime = meta.captureTime || 0;
+    if (cam.stream) video.requestVideoFrameCallback(cb);
+  };
+  video.requestVideoFrameCallback(cb);
+}
+
+function resetTracking() {
+  track.lastVideoTime = -1;
+  track.all = [];
+  track.players = [];
+  track.outEdges.clear();
+  track.lostEdges.clear();
+  track.detectTimes = [];
+  clap.reset();
+}
+
+// 손 하나: vpts = 카메라 영상 픽셀 좌표(박수 계산용), pts = 화면 좌표(거울, 그리기·판정용)
+function makeHand(lms, r) {
+  const vpts = lms.map((p) => ({ x: p.x * r.vw, y: p.y * r.vh }));
+  const pts = lms.map((p) => ({ x: r.ox + (1 - p.x) * r.dw, y: r.oy + p.y * r.dh }));
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+  for (const p of vpts) { x0 = Math.min(x0, p.x); y0 = Math.min(y0, p.y); x1 = Math.max(x1, p.x); y1 = Math.max(y1, p.y); }
+  const len = dist(vpts[0], vpts[12]);   // 손 길이: 손목(0) ~ 중지 끝(12)
+  return {
+    vpts, pts, len,
+    slen: len * r.s,                        // 화면에서의 손 길이
+    area: (x1 - x0) * (y1 - y0),            // 화면에 보이는 크기
+    vpalm: midpoint(vpts[0], vpts[9]),      // 손바닥 중심: 손목(0)과 중지 뿌리(9)의 가운데
+    palm: midpoint(pts[0], pts[9]),
+  };
+}
+
+function detectHands(now) {
+  if (!cam.ready || !handModel.landmarker || video.readyState < 2) return;
+  if (video.currentTime === track.lastVideoTime) return;   // 새 카메라 프레임일 때만
+  track.lastVideoTime = video.currentTime;
+  const t0 = performance.now();
+  // 박수→표시 시간 재기: 카메라가 찍은 순간(알 수 있으면)부터, 모르면 손 인식 시작부터
+  const cap = track.lastCaptureTime;
+  track.frameStart = cap && cap <= t0 && t0 - cap < 500 ? cap : t0;
+  let res;
+  try { res = handModel.landmarker.detectForVideo(video, now); } catch (e) { return; }
+  perf.detectMs = perf.detectMs * 0.9 + (performance.now() - t0) * 0.1;
+
+  const t = now / 1000;
+  track.detectTimes.push(t);
+  while (track.detectTimes.length && t - track.detectTimes[0] > 1) track.detectTimes.shift();
+
+  const r = videoRect();
+  const hands = (res.landmarks || []).map((lms) => makeHand(lms, r)).sort((a, b) => b.area - a.area);
+  const prevPlayers = track.players;
+  track.all = hands;
+  track.players = hands.slice(0, 2);
+  updateEdges(prevPlayers, track.players);
+  clap.update(t, track.players);
+}
+
+/* =====================================================================
+   '두 손 사이': 두 손바닥 중심 a, b를 잇는 띠(위아래로 half만큼). 박수 직전 손이 가장 벌어져 있던 순간의 띠 안에
+   파리가 있어야 잡힌다. 손이 화면에서 잘린 곳에 있어도 그대로 계산한다.
+   ===================================================================== */
+function makeZone(a, b, slen) {
+  return { a: { ...a }, b: { ...b }, half: slen * CONFIG.CLAP_BETWEEN_HALF };
+}
+
+function isBetween(zone, p, pad) {
+  const vx = zone.b.x - zone.a.x, vy = zone.b.y - zone.a.y;
+  const L = Math.hypot(vx, vy);
+  if (L < 1) return dist(zone.a, p) <= zone.half + pad;
+  const along = ((p.x - zone.a.x) * vx + (p.y - zone.a.y) * vy) / L;           // a에서 b 쪽으로 간 거리
+  const across = Math.abs((p.x - zone.a.x) * vy - (p.y - zone.a.y) * vx) / L;  // 띠 중심선에서 떨어진 거리
+  return along >= -pad && along <= L + pad && across <= zone.half + pad;
+}
+
+// 점 p가 화면 가장자리(margin 비율 안쪽 포함) 밖이면 그 가장자리 이름
+function edgeOf(p, margin) {
+  const mx = W * margin, my = H * margin;
+  const over = [['left', mx - p.x], ['right', p.x - (W - mx)], ['top', my - p.y], ['bottom', p.y - (H - my)]];
+  let best = null;
+  for (const [edge, v] of over) if (v > 0 && (!best || v > best[1])) best = [edge, v];
+  return best ? best[0] : null;
+}
+
+function updateEdges(prev, cur) {
+  track.outEdges.clear();
+  for (const h of cur) {
+    const e = edgeOf(h.palm, 0);
+    if (e) track.outEdges.add(e);
+  }
+  if (cur.length >= 2) {
+    track.lostEdges.clear();
+  } else if (prev.length > cur.length) {
+    // 사라진 손 = 지금 보이는 손에서 가장 먼 이전 손
+    const missing = prev
+      .map((p) => ({ p, d: cur.length ? Math.min(...cur.map((c) => dist(c.palm, p.palm))) : Infinity }))
+      .sort((a, b) => b.d - a.d)
+      .slice(0, prev.length - cur.length);
+    for (const { p } of missing) {
+      const e = edgeOf(p.palm, CONFIG.EDGE_WARN_MARGIN);
+      if (e) track.lostEdges.add(e);
+    }
+  }
+  for (const e of track.lostEdges) track.outEdges.add(e);
+}
+
+/* =====================================================================
+   박수 감지
+   모든 거리는 '손 길이' 단위(두 손의 평균 손 길이로 나눈 값)라 거리·사람에 상관없이 같은 감도.
+   1) 맞닿음: CLAP_WINDOW 안에 CLAP_MIN_APPROACH 이상 가까워지고, 거리가 손 너비 × CLAP_DIST 이하
+   2) 다가오다 사라짐: 위처럼 빠르게 다가오던 두 손이 가까운 거리에서 갑자기 인식이 끊김
+   ===================================================================== */
+const clap = {
+  hist: [],            // 최근 CLAP_WINDOW 동안의 두 손 거리
+  refLen: 0,           // 기준 손 길이(영상 픽셀). 손이 떨어져 있을 때만 갱신(박수 순간 손가락이 가려져도 흔들리지 않게)
+  last: null,          // 두 손이 마지막으로 함께 보인 순간
+  cooldownUntil: 0,
+  lastClap: null,      // 디버그: 마지막 박수 {t, how}
+  info: null,          // 디버그: 이번 프레임 수치
+
+  reset() {
+    this.hist = [];
+    this.refLen = 0;
+    this.last = null;
+    this.info = null;
+  },
+
+  update(t, players) {
+    const C = CONFIG;
+    const closeD = C.CLAP_DIST * C.HAND_WIDTH_RATIO;   // 박수 거리(손 길이 단위)
+    if (players.length === 2) {
+      const [a, b] = players;
+      const lenNow = (a.len + b.len) / 2;
+      const raw = dist(a.vpalm, b.vpalm);
+      if (!this.refLen) this.refLen = lenNow;
+      else if (raw > this.refLen * closeD * 2) this.refLen += (lenNow - this.refLen) * 0.2;
+      const d = raw / this.refLen;
+      const mid = midpoint(a.palm, b.palm);
+
+      this.hist.push({ t, d, zone: makeZone(a.palm, b.palm, (a.slen + b.slen) / 2) });
+      while (this.hist.length && t - this.hist[0].t > C.CLAP_WINDOW) this.hist.shift();
+      const widest = this.hist.reduce((m, h) => (h.d > m.d ? h : m));   // 박수 직전 손이 가장 벌어졌던 순간
+      const approach = widest.d - d;
+      this.info = { d, closeD, approach };
+      this.last = { t, d, mid, approach, zone: widest.zone };
+
+      if (t >= this.cooldownUntil && d <= closeD && approach >= C.CLAP_MIN_APPROACH) this.fire(t, mid, 'touch', widest.zone);
+    } else {
+      const L = this.last;
+      if (L && t - L.t <= C.CLAP_LOST_GRACE && t >= this.cooldownUntil &&
+          L.d <= C.CLAP_LOST_NEAR * C.HAND_WIDTH_RATIO && L.approach >= C.CLAP_MIN_APPROACH) {
+        this.fire(t, L.mid, 'lost', L.zone);
+      }
+      this.hist = [];
+      this.last = null;
+      this.info = null;
+    }
+  },
+
+  fire(t, mid, how, zone) {
+    this.cooldownUntil = t + CONFIG.CLAP_COOLDOWN;
+    this.hist = [];
+    this.last = null;
+    this.lastClap = { t, how, zone };
+    track.pendingLatency = track.frameStart;
+    onClap(mid.x, mid.y, zone);
+  },
+};
+
+// 박수 한 번. 위치 = 두 손바닥 중심의 가운데(화면 좌표), zone = 박수 직전 두 손 사이 범위
+function onClap(x, y, zone) {
+  // 화면에서 잘린 곳(카메라에는 보이는 곳)에서 친 박수는 가장 가까운 화면 가장자리에서 친 것으로 본다
+  x = clamp(x, 0, W);
+  y = clamp(y, 0, H);
+  if (state.screen === 'game') {
+    if (judgeClap(x, y, zone) === 'ignored') addRing(x, y);   // 파리가 없는 순간에도 어디를 쳤는지 보여 줌
+  } else if (state.screen === 'pose') {
+    addRing(x, y);
+    addText('짝!', x, y, { size: Math.min(W, H) * 0.06, dur: 0.6, color: '#ffffff' });
+  }
+}
+
+function addRing(x, y) {
+  effects.rings.push({ x, y, r: Math.min(W, H) * 0.09, t: 0, dur: 0.45, color: '255,255,255' });
+}
+
+/* =====================================================================
+   자세 확인
+   ===================================================================== */
+const pose = { token: 0, ready: false, holdT: 0, missT: 0 };
+let poseStatusCache = '';
+
+async function enterPose() {
+  const token = ++pose.token;
+  pose.ready = false;
+  pose.holdT = 0;
+  pose.missT = 0;
+  $('pose-error').hidden = true;
+  setPoseStatus('카메라를 켜는 중…');
+  setPoseBar(0);
+  try {
+    await startCamera();
+    if (token !== pose.token) return stopCameraIfUnused();
+    setPoseStatus('손 인식 준비 중…');
+    await loadHandModel();
+  } catch (err) {
+    if (token === pose.token) showPoseError(err);
+    return;
+  }
+  if (token !== pose.token) return stopCameraIfUnused();
+  pose.ready = true;
+}
+
+function stopCameraIfUnused() {
+  if (!['pose', 'countdown', 'game'].includes(state.screen)) stopCamera();
+}
+
+function setPoseStatus(text, kind = '') {
+  const key = text + '|' + kind;
+  if (poseStatusCache === key) return;
+  poseStatusCache = key;
+  const el = $('pose-status');
+  el.textContent = text;
+  el.className = 'pose-status' + (kind ? ' ' + kind : '');
+}
+
+function setPoseBar(p) {
+  $('pose-bar-fill').style.width = Math.round(clamp(p, 0, 1) * 100) + '%';
+}
+
+const CAMERA_ERRORS = {
+  denied: ['카메라 사용이 막혀 있어요',
+    '주소창 왼쪽의 <b>자물쇠(또는 카메라) 아이콘</b>을 눌러 카메라를 <b>허용</b>으로 바꾼 뒤 <b>다시 시도</b>를 눌러 주세요.<br>아이패드는 <b>설정 → Safari → 카메라 → 허용</b>에서 바꿀 수 있어요.'],
+  notfound: ['카메라를 찾지 못했어요',
+    '이 기기에 카메라가 있는지 확인해 주세요. 외장 카메라라면 다시 꽂고 <b>다시 시도</b>를 눌러 주세요.'],
+  busy: ['카메라를 다른 곳에서 쓰고 있어요',
+    '줌, 팀즈 같은 화상 회의 앱이나 카메라를 쓰는 다른 탭을 닫고 <b>다시 시도</b>를 눌러 주세요.'],
+  insecure: ['이 주소에서는 카메라를 켤 수 없어요',
+    '카메라는 <b>https://</b> 주소나 <b>localhost</b>에서만 켜져요. 선생님이 알려 준 주소로 다시 들어와 주세요.'],
+  unknown: ['카메라를 켤 수 없어요',
+    '잠시 뒤 <b>다시 시도</b>를 눌러 주세요. 계속 안 되면 브라우저를 껐다 켜 보세요.'],
+  model: ['손 인식 프로그램을 불러오지 못했어요',
+    '인터넷 연결을 확인하고 <b>다시 시도</b>를 눌러 주세요.'],
+};
+
+function showPoseError(err) {
+  const [title, msg] = CAMERA_ERRORS[err instanceof CameraError ? err.kind : 'model'];
+  $('pose-error-title').textContent = title;
+  $('pose-error-msg').innerHTML = msg;
+  $('pose-error').hidden = false;
+}
+
+function updatePose(dt) {
+  if (!pose.ready) return;
+  const players = track.players;
+  const vh = video.videoHeight || 480;
+  const tooClose = players.some((h) => h.len / vh > CONFIG.TOO_CLOSE_HAND_LEN);
+  const ok = players.length === 2 && !tooClose && track.outEdges.size === 0;
+
+  if (ok) {
+    pose.holdT += dt;
+    pose.missT = 0;
+  } else {
+    pose.missT += dt;
+    if (pose.missT > 0.3) pose.holdT = 0;   // 잠깐 깜빡 놓친 건 봐줌
+  }
+
+  if (tooClose) setPoseStatus('조금만 뒤로!', 'warn');
+  else if (players.length === 0) setPoseStatus('두 손을 화면에 보여 주세요');
+  else if (players.length === 1) setPoseStatus('한 손이 더 보여야 해요');
+  else if (track.outEdges.size) setPoseStatus('두 손을 화면 안쪽으로 모아 주세요', 'warn');
+  else setPoseStatus('좋아요! 그대로 있어요', 'ok');
+  setPoseBar(pose.holdT / CONFIG.POSE_HOLD_TIME);
+
+  if (pose.holdT >= CONFIG.POSE_HOLD_TIME) startCountdown();
+}
+
+// 자세 확인 화면: 손 위에 동그라미
+function drawPoseHands() {
+  const vh = video.videoHeight || 480;
+  for (const h of track.players) {
+    const tooClose = h.len / vh > CONFIG.TOO_CLOSE_HAND_LEN;
+    let cx = 0, cy = 0;
+    for (const p of h.pts) { cx += p.x; cy += p.y; }
+    cx /= h.pts.length; cy /= h.pts.length;
+    const color = tooClose ? '255,159,67' : track.players.length === 2 ? '91,224,138' : '255,255,255';
+    ctx.beginPath();
+    ctx.arc(cx, cy, h.slen * 0.62, 0, Math.PI * 2);
+    ctx.fillStyle = `rgba(${color},0.12)`;
+    ctx.fill();
+    ctx.lineWidth = Math.max(4, Math.min(W, H) * 0.008);
+    ctx.strokeStyle = `rgba(${color},0.95)`;
+    ctx.stroke();
+  }
+}
+
+/* =====================================================================
+   '손이 화면 밖이에요' 표시
+   ===================================================================== */
+function roundRectPath(x, y, w, h, r) {
+  ctx.beginPath();
+  if (ctx.roundRect) ctx.roundRect(x, y, w, h, r);
+  else ctx.rect(x, y, w, h);
+}
+
+function drawEdgeWarnings() {
+  if (!track.outEdges.size) return;
+  const fs = clamp(Math.min(W, H) * 0.032, 16, 28);
+  ctx.font = `800 ${fs}px ${FONT}`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  const labels = { left: '← 손이 화면 밖이에요', right: '손이 화면 밖이에요 →', top: '↑ 손이 화면 밖이에요', bottom: '↓ 손이 화면 밖이에요' };
+  for (const e of track.outEdges) {
+    const label = labels[e];
+    const w = ctx.measureText(label).width + fs * 1.6;
+    const h = fs * 2.1;
+    const pad = fs * 0.8;
+    let x = W / 2, y = H / 2;
+    if (e === 'left') x = pad + w / 2;
+    if (e === 'right') x = W - pad - w / 2;
+    if (e === 'top') y = Math.max(pad + h / 2, H * 0.24);     // 위쪽 HUD와 겹치지 않게
+    if (e === 'bottom') y = H - pad - h / 2 - 36;
+    roundRectPath(x - w / 2, y - h / 2, w, h, h / 2);
+    ctx.fillStyle = 'rgba(255,159,67,0.95)';
+    ctx.fill();
+    ctx.fillStyle = '#2a1600';
+    ctx.fillText(label, x, y);
+  }
+}
+
+/* =====================================================================
+   디버그 모드(D 키): 손 관절 점, 손바닥 중심, 두 손 거리 수치
+   ===================================================================== */
+const HAND_LINKS = [[0, 1], [1, 2], [2, 3], [3, 4], [0, 5], [5, 6], [6, 7], [7, 8], [5, 9], [9, 10], [10, 11], [11, 12],
+  [9, 13], [13, 14], [14, 15], [15, 16], [13, 17], [17, 18], [18, 19], [19, 20], [0, 17]];
+
+function drawDebug(now) {
+  for (const h of track.all) {
+    const isPlayer = track.players.includes(h);
+    ctx.strokeStyle = isPlayer ? 'rgba(255,212,71,0.9)' : 'rgba(190,190,190,0.6)';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    for (const [a, b] of HAND_LINKS) { ctx.moveTo(h.pts[a].x, h.pts[a].y); ctx.lineTo(h.pts[b].x, h.pts[b].y); }
+    ctx.stroke();
+    ctx.fillStyle = isPlayer ? '#ffd447' : '#bbbbbb';
+    for (const p of h.pts) { ctx.beginPath(); ctx.arc(p.x, p.y, 4, 0, Math.PI * 2); ctx.fill(); }
+    ctx.beginPath();
+    ctx.arc(h.palm.x, h.palm.y, 9, 0, Math.PI * 2);
+    ctx.fillStyle = isPlayer ? '#ff4d4d' : '#888';
+    ctx.fill();
+    ctx.lineWidth = 2; ctx.strokeStyle = '#fff'; ctx.stroke();
+  }
+
+  // 판정 범위: 노란 점선 = 박수 판정 반경, 파란 띠 = 지금 두 손 사이 범위
+  const f = state.fly;
+  if (state.screen === 'game' && f && f.state !== 'squashed') {
+    ctx.setLineDash([6, 6]);
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = 'rgba(255,212,71,0.8)';
+    ctx.beginPath(); ctx.arc(f.x, f.y, flySizePx(f) * CONFIG.HIT_RADIUS_SCALE, 0, Math.PI * 2); ctx.stroke();
+    ctx.setLineDash([]);
+  }
+  if (track.players.length === 2) {
+    const [a, b] = track.players;
+    const z = makeZone(a.palm, b.palm, (a.slen + b.slen) / 2);
+    const L = Math.max(1, dist(z.a, z.b));
+    const nx = -(z.b.y - z.a.y) / L * z.half, ny = (z.b.x - z.a.x) / L * z.half;
+    ctx.beginPath();
+    ctx.moveTo(z.a.x + nx, z.a.y + ny); ctx.lineTo(z.b.x + nx, z.b.y + ny);
+    ctx.lineTo(z.b.x - nx, z.b.y - ny); ctx.lineTo(z.a.x - nx, z.a.y - ny);
+    ctx.closePath();
+    ctx.fillStyle = f && isBetween(z, f, flySizePx(f) * 0.5) ? 'rgba(91,224,138,0.22)' : 'rgba(90,170,255,0.16)';
+    ctx.fill();
+  }
+
+  const info = clap.info;
+  const W_RATIO = CONFIG.HAND_WIDTH_RATIO;
+  if (track.players.length === 2 && info) {
+    const [a, b] = track.players;
+    ctx.setLineDash([8, 6]);
+    ctx.strokeStyle = info.d <= info.closeD ? '#5be08a' : '#ffffff';
+    ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(a.palm.x, a.palm.y); ctx.lineTo(b.palm.x, b.palm.y); ctx.stroke();
+    ctx.setLineDash([]);
+    const m = midpoint(a.palm, b.palm);
+    ctx.font = `700 16px ${FONT}`;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
+    ctx.lineWidth = 4; ctx.strokeStyle = 'rgba(0,0,0,0.7)';
+    const label = `손 너비 × ${(info.d / W_RATIO).toFixed(2)}`;
+    ctx.strokeText(label, m.x, m.y - 10);
+    ctx.fillStyle = '#fff';
+    ctx.fillText(label, m.x, m.y - 10);
+  }
+
+  const t = now / 1000;
+  const lines = [
+    `손 인식 ${track.detectTimes.length}회/초 · 잡힌 손 ${track.all.length}개(플레이어 ${track.players.length})`,
+    `인식 1회 ${perf.detectMs.toFixed(0)}ms · 화면 ${(1000 / perf.frameMs).toFixed(0)}fps${perf.low ? ' · 저사양 모드' : ''}` +
+      ` · 박수→판정 표시 ${track.latencyMs === null ? '-' : track.latencyMs.toFixed(0) + 'ms'}`,
+    `기준 손 길이 ${clap.refLen ? clap.refLen.toFixed(0) + 'px(영상)' : '-'}`,
+    info ? `두 손 거리 = 손 너비 × ${(info.d / W_RATIO).toFixed(2)}  (박수: ≤ ${CONFIG.CLAP_DIST})` : '두 손 거리 -',
+    info ? `${CONFIG.CLAP_WINDOW}초간 다가온 양 = 손 길이 × ${info.approach.toFixed(2)}  (박수: ≥ ${CONFIG.CLAP_MIN_APPROACH})` : '다가온 양 -',
+    f && track.players.length === 2 ? `파리가 두 손 사이에 ${isBetween(makeZone(track.players[0].palm, track.players[1].palm, (track.players[0].slen + track.players[1].slen) / 2), f, flySizePx(f) * 0.5) ? '있음' : '없음'}` : '파리가 두 손 사이에 -',
+    clap.lastClap ? `마지막 박수: ${clap.lastClap.how === 'touch' ? '맞닿음' : '다가오다 사라짐'} (${(t - clap.lastClap.t).toFixed(1)}초 전)` : '마지막 박수: -',
+  ];
+  ctx.font = `600 15px ${FONT}`;
+  ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+  const lh = 21, pad = 10;
+  const bw = Math.max(...lines.map((l) => ctx.measureText(l).width)) + pad * 2;
+  const bh = lines.length * lh + pad * 2;
+  const bx = 12, by = H - bh - 52;
+  ctx.fillStyle = 'rgba(0,0,0,0.65)';
+  roundRectPath(bx, by, bw, bh, 10);
+  ctx.fill();
+  ctx.fillStyle = '#fff';
+  lines.forEach((l, i) => ctx.fillText(l, bx + pad, by + pad + i * lh));
+}
+
+/* =====================================================================
+   소리: Web Audio API로 직접 만든다(음원 파일 없음)
+   ===================================================================== */
+const sound = {
+  ctx: null, master: null, noise: null, buzz: null,
+  muted: false,
+  lastBuzzUpdate: 0,
+
+  init() {
+    if (this.ctx) {
+      if (this.ctx.state === 'suspended') this.ctx.resume();
+      return;
+    }
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return;
+    const ac = this.ctx = new AC();
+    this.master = ac.createGain();
+    this.master.gain.value = this.muted ? 0 : CONFIG.VOLUME;
+    this.master.connect(ac.destination);
+
+    // 1초짜리 잡음(찰싹·휙 재료)
+    const buf = ac.createBuffer(1, ac.sampleRate, ac.sampleRate);
+    const data = buf.getChannelData(0);
+    for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
+    this.noise = buf;
+
+    // 윙윙: 톱니파 두 개 → 대역 필터 → 날개 떨림(빠른 크기 흔들림) → 좌우 위치
+    const osc1 = ac.createOscillator(); osc1.type = 'sawtooth';
+    const osc2 = ac.createOscillator(); osc2.type = 'sawtooth'; osc2.detune.value = 18;
+    const filter = ac.createBiquadFilter(); filter.type = 'bandpass'; filter.Q.value = 1.4;
+    const flutter = ac.createGain(); flutter.gain.value = 0.7;
+    const lfo = ac.createOscillator(); lfo.frequency.value = 24;
+    const lfoDepth = ac.createGain(); lfoDepth.gain.value = 0.3;
+    lfo.connect(lfoDepth).connect(flutter.gain);
+    const gain = ac.createGain(); gain.gain.value = 0;
+    const pan = ac.createStereoPanner ? ac.createStereoPanner() : null;
+    osc1.connect(filter); osc2.connect(filter);
+    filter.connect(flutter).connect(gain);
+    if (pan) gain.connect(pan).connect(this.master); else gain.connect(this.master);
+    osc1.start(); osc2.start(); lfo.start();
+    this.buzz = { osc1, osc2, filter, gain, pan };
+  },
+
+  toggleMute() {
+    this.muted = !this.muted;
+    if (this.master) this.master.gain.setTargetAtTime(this.muted ? 0 : CONFIG.VOLUME, this.ctx.currentTime, 0.02);
+    $('sound-pill').classList.toggle('show', this.muted);
+  },
+
+  // 매 프레임: level = 0~1 크기, speed = 초당 화면 너비, panX = -1(왼쪽)~1(오른쪽)
+  setBuzz(level, speed, panX) {
+    if (!this.buzz) return;
+    const now = performance.now();
+    if (now - this.lastBuzzUpdate < 50) return;
+    this.lastBuzzUpdate = now;
+    const t = this.ctx.currentTime;
+    const [lo, hi] = CONFIG.BUZZ_HZ;
+    const freq = lo + (hi - lo) * clamp(speed / 0.9, 0, 1);
+    const b = this.buzz;
+    b.gain.gain.setTargetAtTime(level * CONFIG.BUZZ_VOLUME, t, 0.06);
+    b.osc1.frequency.setTargetAtTime(freq, t, 0.06);
+    b.osc2.frequency.setTargetAtTime(freq, t, 0.06);
+    b.filter.frequency.setTargetAtTime(freq * 3, t, 0.06);
+    if (b.pan) b.pan.pan.setTargetAtTime(clamp(panX, -1, 1) * 0.6, t, 0.06);
+  },
+
+  noiseHit({ dur, f0, f1 = f0, q = 1, vol = 1, attack = 0.003 }) {
+    if (!this.ctx) return;
+    const ac = this.ctx, t = ac.currentTime;
+    const src = ac.createBufferSource(); src.buffer = this.noise;
+    const bp = ac.createBiquadFilter(); bp.type = 'bandpass'; bp.Q.value = q;
+    bp.frequency.setValueAtTime(f0, t);
+    bp.frequency.exponentialRampToValueAtTime(f1, t + dur);
+    const g = ac.createGain();
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(vol, t + attack);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    src.connect(bp).connect(g).connect(this.master);
+    src.start(t, Math.random() * 0.5);
+    src.stop(t + dur + 0.05);
+  },
+
+  tone({ freq, freq2 = freq, dur, type = 'sine', vol = 0.3, delay = 0 }) {
+    if (!this.ctx) return;
+    const ac = this.ctx, t = ac.currentTime + delay;
+    const o = ac.createOscillator(); o.type = type;
+    o.frequency.setValueAtTime(freq, t);
+    o.frequency.exponentialRampToValueAtTime(freq2, t + dur);
+    const g = ac.createGain();
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(vol, t + 0.005);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(g).connect(this.master);
+    o.start(t);
+    o.stop(t + dur + 0.05);
+  },
+
+  slap() {      // 찰싹
+    this.noiseHit({ dur: 0.13, f0: 2200, f1: 900, q: 0.9, vol: 1.0 });
+    this.tone({ freq: 150, freq2: 60, dur: 0.12, vol: 0.7 });
+  },
+  whoosh() {    // 휙
+    this.noiseHit({ dur: 0.28, f0: 500, f1: 2600, q: 2.5, vol: 0.45, attack: 0.08 });
+  },
+  tick(high) {  // 째깍
+    this.tone({ freq: high ? 2000 : 1500, dur: 0.035, type: 'square', vol: 0.12 });
+  },
+  beep(freq) {  // 카운트다운
+    this.tone({ freq, dur: 0.14, vol: 0.3 });
+  },
+  fanfare() {   // 결과 축하
+    [523, 659, 784, 1047].forEach((f, i) => this.tone({ freq: f, dur: 0.22, type: 'triangle', vol: 0.3, delay: i * 0.11 }));
+  },
+};
+
+// 마지막 10초 째깍 + 윙윙 크기·높낮이
+function updateSound() {
+  const f = state.fly;
+  if (state.screen === 'game' && state.running && f && f.state !== 'squashed') {
+    const speed = f.speedFrac * f.dodgeBonus * f.curMul;
+    const boost = state.timeLeft <= CONFIG.WARNING_TIME ? CONFIG.LAST_SECONDS_BUZZ_BOOST : 1;
+    sound.setBuzz(boost, speed, (f.x / W) * 2 - 1);
+  } else {
+    sound.setBuzz(0, 0, 0);
+  }
+  if (state.screen === 'game' && state.running && state.timeLeft <= CONFIG.WARNING_TIME) {
+    const sec = Math.ceil(state.timeLeft);
+    if (sec !== state.lastTickSec && sec > 0) {
+      state.lastTickSec = sec;
+      sound.tick(sec % 2 === 0);
+    }
+  }
+}
+
+/* =====================================================================
+   결과 화면 축하(2초): 숫자 올라가기 + 색종이. 화면 전체가 번쩍이는 효과는 쓰지 않는다.
+   ===================================================================== */
+function countUp(el, to, ms) {
+  const start = performance.now();
+  const step = (now) => {
+    const p = Math.min(1, (now - start) / ms);
+    el.textContent = Math.round(to * (1 - Math.pow(1 - p, 3)));
+    if (p < 1 && state.screen === 'result') requestAnimationFrame(step);
+    else el.textContent = to;
+  };
+  requestAnimationFrame(step);
+}
+
+const confetti = [];
+const CONFETTI_COLORS = ['#ffd447', '#5be08a', '#5aaaff', '#ff7a6b', '#ffffff', '#c58bff'];
+
+function startConfetti(n) {
+  confetti.length = 0;
+  for (let i = 0; i < n; i++) {
+    confetti.push({
+      x: rand(0, W), y: rand(-H * 0.6, -10),
+      vx: rand(-40, 40), vy: rand(H * 0.25, H * 0.5),
+      rot: rand(0, 6), vr: rand(-8, 8),
+      w: rand(6, 12), h: rand(10, 18),
+      sway: rand(0, 6), color: pick(CONFETTI_COLORS),
+      t: 0, dur: rand(1.6, 2.0),
+    });
+  }
+}
+
+function stopConfetti() {
+  confetti.length = 0;
+  fxCtx.clearRect(0, 0, W, H);
+}
+
+function updateConfetti(dt) {
+  if (!confetti.length) return;
+  fxCtx.clearRect(0, 0, W, H);
+  for (let i = confetti.length - 1; i >= 0; i--) {
+    const c = confetti[i];
+    c.t += dt;
+    if (c.t >= c.dur) { confetti.splice(i, 1); continue; }
+    c.x += (c.vx + Math.sin(c.t * 4 + c.sway) * 60) * dt;
+    c.y += c.vy * dt;
+    c.rot += c.vr * dt;
+    fxCtx.save();
+    fxCtx.globalAlpha = Math.min(1, (c.dur - c.t) / 0.4);
+    fxCtx.translate(c.x, c.y);
+    fxCtx.rotate(c.rot);
+    fxCtx.scale(1, Math.cos(c.t * 6 + c.sway));   // 팔랑팔랑
+    fxCtx.fillStyle = c.color;
+    fxCtx.fillRect(-c.w / 2, -c.h / 2, c.w, c.h);
+    fxCtx.restore();
+  }
+  if (!confetti.length) fxCtx.clearRect(0, 0, W, H);
+}
+
+/* =====================================================================
+   주소 QR (QR 그리기 라이브러리는 버튼을 누를 때 CDN에서 불러옴)
+   ===================================================================== */
+const QR_LIB_URL = 'https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js';
+let qrLibLoading = null;
+
+function loadQrLib() {
+  if (window.qrcode) return Promise.resolve();
+  if (!qrLibLoading) {
+    qrLibLoading = new Promise((resolve, reject) => {
+      const s = document.createElement('script');
+      s.src = QR_LIB_URL;
+      s.onload = resolve;
+      s.onerror = () => { qrLibLoading = null; reject(new Error('qr')); };
+      document.head.appendChild(s);
+    });
+  }
+  return qrLibLoading;
+}
+
+function gameUrl() {
+  return location.origin + location.pathname.replace(/index\.html$/, '');
+}
+
+async function openQr() {
+  const url = gameUrl();
+  $('qr-url').textContent = url;
+  $('qr-box').textContent = 'QR 만드는 중…';
+  $('qr-modal').hidden = false;
+  try {
+    await loadQrLib();
+    const qr = qrcode(0, 'M');
+    qr.addData(url);
+    qr.make();
+    $('qr-box').innerHTML = qr.createSvgTag({ cellSize: 8, margin: 2, scalable: true });
+  } catch (e) {
+    $('qr-box').textContent = 'QR을 만들지 못했어요. 인터넷 연결을 확인해 주세요. 위 주소를 칠판에 적어 주셔도 돼요.';
+  }
+}
+
+function closeQr() {
+  $('qr-modal').hidden = true;
+}
+
+/* =====================================================================
+   성능: 느린 기기면 저사양 모드(해상도 낮춤 + 손 2개까지만 찾기)
+   ===================================================================== */
+function checkPerformance(dt, camScreen) {
+  if (perf.low || !camScreen || !cam.ready) { perf.slowT = 0; return; }
+  const slow = perf.detectMs > CONFIG.SLOW_DETECT_MS || perf.frameMs > CONFIG.SLOW_FRAME_MS;
+  perf.slowT = slow ? perf.slowT + dt : 0;
+  if (perf.slowT > 2) {
+    perf.low = true;
+    resize();
+    if (handModel.landmarker) Promise.resolve(handModel.landmarker.setOptions({ numHands: 2 })).catch(() => {});
+  }
+}
+
+/* =====================================================================
+   메인 루프
+   ===================================================================== */
+let lastTime = performance.now();
+
+function frame(now) {
+  const dt = Math.min(0.05, (now - lastTime) / 1000);
+  perf.frameMs = perf.frameMs * 0.95 + Math.min(100, now - lastTime) * 0.05;
+  lastTime = now;
+  const camScreen = state.screen === 'pose' || state.screen === 'countdown' || state.screen === 'game';
+
+  if (camScreen) detectHands(now);
+
+  if (state.screen === 'pose') {
+    updatePose(dt);
+    updateEffects(dt);
+  }
+
+  if (state.screen === 'countdown') {
+    state.countdownT += dt;
+    const n = CONFIG.COUNTDOWN_FROM - Math.floor(state.countdownT / CONFIG.COUNTDOWN_STEP);
+    if (n <= 0) {
+      beginPlay();
+    } else if (n !== state.countdownShown) {
+      state.countdownShown = n;
+      $('countdown-num').textContent = n;
+      restartAnim($('countdown-num'), 'pop');
+      sound.beep(660);
+    }
+  }
+
+  if (state.screen === 'game' && state.running) {
+    state.timeLeft -= dt;
+    if (state.nextSpawnIn !== null) {
+      state.nextSpawnIn -= dt;
+      if (state.nextSpawnIn <= 0) { state.nextSpawnIn = null; spawnFly(); }
+    }
+    if (state.fly) updateFly(state.fly, dt);
+    updateEffects(dt);
+    updateHud();
+    if (state.timeLeft <= 0) { state.timeLeft = 0; updateHud(); endGame(); }
+  }
+
+  if (camScreen && cam.ready) drawVideo(state.screen === 'pose' ? CONFIG.POSE_VIDEO_DARKEN : CONFIG.VIDEO_DARKEN);
+  else drawBackground();
+  if (state.screen === 'pose') {
+    drawPoseHands();
+    drawEffects();
+  }
+  if (state.screen === 'game' || state.screen === 'result') {
+    drawEffects();
+    if (state.fly) drawFly(state.fly);
+  }
+  if (camScreen) drawEdgeWarnings();
+  if (camScreen && state.debug) drawDebug(now);
+
+  // 박수가 난 프레임을 다 그렸으면 박수→판정 표시 시간 기록
+  if (track.pendingLatency !== null) {
+    track.latencyMs = performance.now() - track.pendingLatency;
+    track.pendingLatency = null;
+  }
+  updateSound();
+  updateConfetti(dt);
+  checkPerformance(dt, camScreen);
+
+  requestAnimationFrame(frame);
+}
+
+/* =====================================================================
+   입력
+   ===================================================================== */
+// 디버그 모드에서만: 클릭(아이패드는 터치) = 박수
+canvas.addEventListener('pointerdown', (e) => {
+  if (e.pointerType === 'mouse' && e.button !== 0) return;
+  e.preventDefault();
+  if (state.debug && state.screen === 'game') judgeClap(e.clientX, e.clientY);
+});
+canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+document.addEventListener('gesturestart', (e) => e.preventDefault());
+document.addEventListener('dblclick', (e) => e.preventDefault());
+
+document.querySelectorAll('.mode').forEach((b) => {
+  b.addEventListener('click', () => { selectMode(b.dataset.mode); b.blur(); });
+});
+$('btn-start').addEventListener('click', (e) => { e.currentTarget.blur(); startFlow(); });
+$('btn-again').addEventListener('click', (e) => { e.currentTarget.blur(); startFlow(); });
+$('btn-home').addEventListener('click', (e) => { e.currentTarget.blur(); goHome(); });
+$('btn-retry').addEventListener('click', (e) => { e.currentTarget.blur(); enterPose(); });
+$('btn-pose-home').addEventListener('click', (e) => { e.currentTarget.blur(); goHome(); });
+$('btn-qr').addEventListener('click', (e) => { e.currentTarget.blur(); openQr(); });
+$('btn-qr-close').addEventListener('click', closeQr);
+$('qr-modal').addEventListener('click', (e) => { if (e.target === e.currentTarget) closeQr(); });
+
+window.addEventListener('keydown', (e) => {
+  if (!$('qr-modal').hidden) {   // QR 창이 열려 있으면 닫기만
+    if (e.code === 'Escape' || e.code === 'Space') { e.preventDefault(); closeQr(); }
+    return;
+  }
+  if (e.code === 'KeyM' && !e.repeat) {
+    sound.toggleMute();
+    return;
+  }
+  if (e.code === 'Space') {
+    e.preventDefault();
+    if (e.repeat) return;
+    if (state.screen === 'start' || state.screen === 'result') startFlow();
+    else if (state.screen === 'pose' && state.debug) startCountdown();   // 디버그: 자세 확인 건너뛰기
+  } else if (e.code === 'Escape') {
+    e.preventDefault();
+    if (state.screen !== 'start') goHome();
+  } else if (e.code === 'KeyD' && !e.repeat) {
+    state.debug = !state.debug;
+    document.body.classList.toggle('debug', state.debug);
+  }
+});
+window.addEventListener('keyup', (e) => { if (e.code === 'Space') e.preventDefault(); });
+
+window.addEventListener('resize', resize);
+
+/* ===================================================================== */
+$('main-desc').textContent = `${CONFIG.GAME_DURATION}초 · 잡을수록 빨라져요`;
+resize();
+requestAnimationFrame(frame);
+loadHandModel().catch(() => {});   // 시작 화면에 있는 동안 손 인식 모델을 미리 받아 둠(실패하면 자세 확인 화면에서 안내)
+
+// 오프라인 대비: 한 번 접속하면 게임 파일과 MediaPipe 스크립트·모델을 기기에 저장해 둠(sw.js)
+if ('serviceWorker' in navigator && window.isSecureContext && location.protocol !== 'file:') {
+  navigator.serviceWorker.register('./sw.js').catch(() => {});
+}
+</script>
+</body>
+</html>
